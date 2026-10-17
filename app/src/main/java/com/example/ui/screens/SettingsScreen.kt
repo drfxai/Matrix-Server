@@ -143,9 +143,12 @@ fun SettingsScreen(
         MatrixOptionItem(22222, "22222 (High)", Icons.Default.Settings)
     )
 
+    val credentialsValid = username.matches(Regex("^[A-Za-z0-9._-]{1,32}$")) &&
+        isValidPort && (!passwordAuth || password.length in 12..128)
+
     val passwordStrength = remember(password) {
         when {
-            password.length >= 10 -> "STRONG" to MatrixGreen
+            password.length >= 12 -> "STRONG" to MatrixGreen
             password.length >= 6 -> "MODERATE" to MatrixYellow
             password.isNotBlank() -> "WEAK" to MatrixRed
             else -> "EMPTY" to MatrixTextSecondary
@@ -207,7 +210,8 @@ fun SettingsScreen(
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier
                     .height(40.dp)
-                    .testTag("save_settings_button")
+                    .testTag("save_settings_button"),
+                enabled = credentialsValid
             ) {
                 Icon(imageVector = Icons.Default.Save, contentDescription = null, modifier = Modifier.size(15.dp))
                 Spacer(modifier = Modifier.width(6.dp))
@@ -626,7 +630,8 @@ fun SettingsScreen(
                                             },
                                             colors = ButtonDefaults.buttonColors(containerColor = MatrixBlue, contentColor = MatrixBlack),
                                             shape = RoundedCornerShape(6.dp),
-                                            modifier = Modifier.fillMaxWidth().testTag("save_restart_port_button")
+                                            modifier = Modifier.fillMaxWidth().testTag("save_restart_port_button"),
+                                            enabled = credentialsValid
                                         ) {
                                             Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
                                             Spacer(modifier = Modifier.width(6.dp))

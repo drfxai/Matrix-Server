@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.apache.sshd.common.config.keys.AuthorizedKeyEntry
+import org.apache.sshd.common.config.keys.KeyUtils
+import org.apache.sshd.common.config.keys.PublicKeyEntryResolver
 import org.apache.sshd.common.session.Session
 import org.apache.sshd.common.session.SessionListener
 import org.apache.sshd.server.Environment
@@ -27,6 +30,8 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.net.ServerSocket
 import java.security.PublicKey
+import java.security.MessageDigest
+import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicInteger
 
 class SshServerManager(
@@ -60,6 +65,12 @@ class SshServerManager(
                 return Result.success(Unit)
             }
 
+            if (!SshAuthPolicy.canStart(config, config.publicKeyAuthEnabled && hasAuthorizedKeys())) {
+                return Result.failure(IllegalStateException(
+                    "Configure a strong password or at least one valid authorized SSH public key"
+                ))
+            }
+
             // Verify port availability
             if (!isPortAvailable(config.port)) {
                 return Result.failure(IllegalStateException("Port ${config.port} is already in use by another service"))
@@ -76,6 +87,8 @@ class SshServerManager(
 
             val server = SshServer.setUpDefaultServer()
             server.port = config.port
+            // Bind to all interfaces for intentional LAN access; never permit anonymous logins.
+            server.host = "0.0.0.0"
 
             // Setup Host Key Provider
             val keyProvider = SimpleGeneratorHostKeyProvider(linuxEnvironment.hostKeyFile.toPath())
@@ -84,20 +97,18 @@ class SshServerManager(
 
             // Setup Password Authentication
             server.passwordAuthenticator = PasswordAuthenticator { username, password, _ ->
-                if (config.passwordAuthEnabled && username == config.username && password == config.password) {
-                    Log.i(tag, "Password authentication successful for user: $username")
-                    true
-                } else {
-                    Log.w(tag, "Password authentication failed for user: $username")
-                    false
-                }
+                config.passwordAuthEnabled && username == config.username &&
+                    SshAuthPolicy.validPassword(config.password) &&
+                    MessageDigest.isEqual(
+                        password.toByteArray(StandardCharsets.UTF_8),
+                        config.password.toByteArray(StandardCharsets.UTF_8)
+                    )
             }
 
             // Setup Public Key Authentication
             server.publickeyAuthenticator = PublickeyAuthenticator { username, key, _ ->
                 if (config.publicKeyAuthEnabled && username == config.username) {
                     val isAuthorized = verifyPublicKey(key)
-                    Log.i(tag, "Public key auth for user $username result: $isAuthorized")
                     isAuthorized
                 } else {
                     false
@@ -156,15 +167,22 @@ class SshServerManager(
         }
     }
 
-    private fun verifyPublicKey(key: PublicKey): Boolean {
-        // Check authorized_keys file
+    private fun hasAuthorizedKeys(): Boolean = authorizedKeys().isNotEmpty()
+
+    private fun verifyPublicKey(key: PublicKey): Boolean =
+        authorizedKeys().any { trusted -> KeyUtils.compareKeys(trusted, key) }
+
+    private fun authorizedKeys(): List<PublicKey> {
         val file = linuxEnvironment.authorizedKeysFile
-        if (file.exists() && file.length() > 0) {
-            val fileContent = file.readText()
-            if (fileContent.isNotBlank()) return true
+        if (!file.isFile || file.length() == 0L) return emptyList()
+        return try {
+            AuthorizedKeyEntry.readAuthorizedKeys(file.toPath()).mapNotNull {
+                it.resolvePublicKey(null, PublicKeyEntryResolver.IGNORING)
+            }
+        } catch (e: Exception) {
+            Log.w(tag, "Invalid authorized_keys file; denying SSH key authentication", e)
+            emptyList()
         }
-        // In local development or if keys are configured in DB
-        return true
     }
 
     private fun isPortAvailable(port: Int): Boolean {

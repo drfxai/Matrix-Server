@@ -54,6 +54,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.DigitalRainHeader
@@ -84,10 +85,10 @@ fun SetupWizardScreen(
     var currentStep by remember { mutableIntStateOf(1) }
 
     var username by remember { mutableStateOf("matrix") }
-    var password by remember { mutableStateOf("matrix1337") }
+    var password by remember { mutableStateOf("") }
     var port by remember { mutableStateOf("2222") }
     var wakeLock by remember { mutableStateOf(true) }
-    var autoStartOnBoot by remember { mutableStateOf(true) }
+    var autoStartOnBoot by remember { mutableStateOf(false) }
 
     val portOptions = listOf(
         MatrixOptionItem("2222", "2222 (Default)", Icons.Default.Settings),
@@ -329,7 +330,8 @@ fun SetupWizardScreen(
                             OutlinedTextField(
                                 value = password,
                                 onValueChange = { password = it },
-                                label = { Text("SSH Password") },
+                                label = { Text("SSH Password (12+ characters)") },
+                                visualTransformation = PasswordVisualTransformation(),
                                 leadingIcon = {
                                     Icon(imageVector = Icons.Default.Lock, contentDescription = null, tint = MatrixGreen, modifier = Modifier.size(18.dp))
                                 },
@@ -357,6 +359,8 @@ fun SetupWizardScreen(
                                 config.copy(
                                     username = username.ifBlank { "matrix" },
                                     password = password,
+                                    passwordAuthEnabled = true,
+                                    publicKeyAuthEnabled = false,
                                     port = p
                                 )
                             )
@@ -367,7 +371,9 @@ fun SetupWizardScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(48.dp)
-                            .testTag("setup_next_step_2")
+                            .testTag("setup_next_step_2"),
+                        enabled = username.matches(Regex("^[A-Za-z0-9._-]{1,32}$")) &&
+                            password.length in 12..128 && (port.toIntOrNull() in 1024..65535)
                     ) {
                         Text("CONTINUE TO PERSISTENCE", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         Spacer(modifier = Modifier.width(8.dp))
