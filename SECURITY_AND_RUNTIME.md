@@ -45,3 +45,7 @@ input. In-app key additions and revocations rewrite `authorized_keys` using
 an atomic file replacement. Database-managed keys are authoritative when edited
 through the UI; editing the file directly through SSH can be overwritten by a
 later UI key change. Changes to disk are checked on the next key-auth attempt.
+
+The host fingerprint shown in the app is derived from the actual persisted SSH
+public host key. If the server key has not been created or cannot be read, the UI
+reports `Unavailable`; it never displays a fabricated fingerprint.
