@@ -70,3 +70,30 @@ background behavior and network attack testing are still required before
 a production signed APK is published.
 
 See [Security and Runtime Status](SECURITY_AND_RUNTIME.md) for additional details.
+
+## Pre-release test APKs for Android 7.0 and newer
+
+The debug CI build generates two downloadable APK artifacts, with identical
+application ID and version but different CPU packaging:
+
+- `MatrixServer-arm64-v8a.apk`: for ARM64 phones running Android 7.0 (API 24) or later.
+- `MatrixServer-universal.apk`: for Android 7.0 (API 24) or later, with
+  supported ARM64, ARMv7 (32-bit), x86, and x86_64 native libraries.
+
+The APKs are attached as **separate GitHub Actions artifacts** in successful
+builds of the Android CI workflow. Download the ZIP for the desired artifact and
+extract the APK before installing.
+
+The build uses `desugar_jdk_libs_nio` because parts of the SSHD implementation
+use `java.nio.file`, which Android 7 does not implement natively.
+
+**Important:** These packages are debug-signed, and must not be mistaken for
+a production release. They cannot install as an upgrade over an app signed by
+a different key. Do not uninstall an existing deployment without backing up
+its app data and authorized keys first; these are protected by Android app
+storage and may be irretrievably lost on uninstall.
+
+Passing unit tests and Android Lint is not the same as executing the app on
+a real Android 7 or 8 device. SSH login, key authentication, SFTP and background
+service behavior must be tested on representative devices before declaring
+backwards compatibility production-ready.

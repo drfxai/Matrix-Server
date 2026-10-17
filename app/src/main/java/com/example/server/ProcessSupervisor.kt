@@ -130,8 +130,20 @@ class ProcessSupervisor(
                 try {
                     managed.process.destroy() // SIGTERM
                     delay(500)
-                    if (managed.process.isAlive) {
-                        managed.process.destroyForcibly() // SIGKILL
+                    // Process.isAlive() is only available on newer Android APIs.
+                    // exitValue() is supported on Android 7 and throws while running.
+                    val stillRunning = try {
+                        managed.process.exitValue()
+                        false
+                    } catch (_: IllegalThreadStateException) {
+                        true
+                    }
+                    if (stillRunning) {
+                        if (android.os.Build.VERSION.SDK_INT >= 26) {
+                            managed.process.destroyForcibly()
+                        } else {
+                            managed.process.destroy()
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e(tag, "Error terminating project process $projectId", e)
