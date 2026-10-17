@@ -89,18 +89,23 @@ class LinuxEnvironment(private val context: Context) {
             "Matrix Terminal HTTP Client", "Matrix Python Environment",
             "Matrix Node.js Environment", "Matrix-Android",
             "Matrix Linux Userspace", "Matrix Terminal Text Editor",
-            "Matrix Package v1.0"
+            "Matrix Package v1.0", "CPU Usage: 12%", "Matrix Linux Android", "Matrix Android)"
         )
         val shimNames = listOf(
             "apt", "apt-get", "pkg", "dpkg", "python3", "python",
             "nodejs", "node", "git", "curl", "wget", "nano", "vim",
-            "fastfetch", "neofetch", "htop", "nginx", "sqlite3"
+            "fastfetch", "neofetch", "htop", "nginx", "sqlite3", "sudo"
         )
         for (name in shimNames) {
             val candidate = File(binDir, name)
             if (candidate.isFile && candidate.length() in 1..32768) {
                 val source = runCatching { candidate.readText() }.getOrDefault("")
-                if (fakeMarkers.any { source.contains(it) }) candidate.delete()
+                val aptShim = name in listOf("apt-get", "pkg") &&
+                    source.startsWith("#!/system/bin/sh") && source.contains("/apt ")
+                val sudoShim = name == "sudo" && source.contains("usage: sudo command")
+                if (fakeMarkers.any { source.contains(it) } || aptShim || sudoShim) {
+                    candidate.delete()
+                }
             }
         }
     }
@@ -167,11 +172,9 @@ class LinuxEnvironment(private val context: Context) {
                 |elif command -v python >/dev/null 2>&1; then
                 |    exec python server.py
                 |else
-                |    # Built-in lightweight fallback HTTP responder using netcat or shell
-                |    echo "Python not detected; running Matrix Shell Web responder on port 8080"
-                |    while true; do
-                |        echo -e "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n<h1>Matrix Server Active</h1><p>Running on Android</p>" | nc -l -p 8080 2>/dev/null || sleep 2
-                |    done
+                |    # No interpreter available; never fabricate an active server.
+                |    echo "Python runtime unavailable. Install a verified runtime." >&2
+                |    exit 127
                 |fi
                 """.trimMargin()
             )
@@ -208,11 +211,8 @@ class LinuxEnvironment(private val context: Context) {
                 |if command -v node >/dev/null 2>&1; then
                 |    exec node app.js
                 |else
-                |    echo "Node.js not installed in global path; running API simulation daemon"
-                |    while true; do
-                |        echo "[$(date)] Matrix API microservice heartbeat (listening on 8081)"
-                |        sleep 15
-                |    done
+                |    echo "Node.js runtime unavailable. Install a verified runtime." >&2
+                |    exit 127
                 |fi
                 """.trimMargin()
             )
