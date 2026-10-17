@@ -30,7 +30,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      # GitHub-hosted Ubuntu provides SDK tools; avoid obsolete setup-android 'tools' package.
       - name: Install Android SDK packages
         run: |
           yes | sdkmanager --licenses >/dev/null || true
