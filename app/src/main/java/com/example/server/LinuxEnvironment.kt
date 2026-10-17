@@ -3,6 +3,8 @@ package com.example.server
 import android.content.Context
 import java.io.File
 import java.security.MessageDigest
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 class LinuxEnvironment(private val context: Context) {
 
@@ -13,6 +15,28 @@ class LinuxEnvironment(private val context: Context) {
     val sshDir: File get() = File(homeDir, ".ssh")
     val authorizedKeysFile: File get() = File(sshDir, "authorized_keys")
     val hostKeyFile: File get() = File(rootDir, "ssh_host_rsa_key")
+
+    /** Atomic replacement prevents partially written authorization files. */
+    fun writeAuthorizedKeys(keys: List<String>) {
+        if (!sshDir.isDirectory) check(sshDir.mkdirs()) { "Unable to create SSH directory" }
+        require(keys.all { AuthorizedKeyValidator.parse(it) != null }) {
+            "Refusing to write invalid SSH public keys"
+        }
+        val temp = Files.createTempFile(sshDir.toPath(), ".authorized-keys-", ".tmp").toFile()
+        try {
+            temp.writeText(keys.joinToString(separator = "\n", postfix = if (keys.isEmpty()) "" else "\n"))
+            temp.setReadable(true, true)
+            temp.setWritable(true, true)
+            Files.move(
+                temp.toPath(), authorizedKeysFile.toPath(),
+                StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING
+            )
+            authorizedKeysFile.setReadable(true, true)
+            authorizedKeysFile.setWritable(true, true)
+        } finally {
+            temp.delete()
+        }
+    }
 
     fun initializeEnvironment() {
         if (!homeDir.exists()) homeDir.mkdirs()

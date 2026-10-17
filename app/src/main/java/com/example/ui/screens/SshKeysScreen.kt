@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.AuthorizedKey
+import com.example.server.AuthorizedKeyValidator
 import com.example.ui.theme.MatrixBlack
 import com.example.ui.theme.MatrixDarkSurface
 import com.example.ui.theme.MatrixGreen
@@ -253,7 +254,7 @@ fun SshKeysScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No public keys added yet.\nPassword authentication is currently permitted.",
+                    text = if (config.passwordAuthEnabled) "No SSH public keys configured.\nPassword login is enabled." else "No SSH public keys configured.\nSSH requires a configured authentication method.",
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp,
                     color = MatrixTextSecondary
@@ -312,11 +313,12 @@ fun SshKeysScreen(
                 MatrixDialogButtons(
                     confirmText = "SAVE KEY",
                     confirmIcon = Icons.Default.Add,
-                    confirmEnabled = keyText.isNotBlank(),
+                    confirmEnabled = AuthorizedKeyValidator.parse(keyText) != null,
                     onConfirm = {
                         if (keyText.isNotBlank()) {
-                            viewModel.addAuthorizedKey(label, keyText)
-                            showAddKeyDialog = false
+                            if (viewModel.addAuthorizedKey(label, keyText)) {
+                                showAddKeyDialog = false
+                            }
                         }
                     },
                     onDismiss = { showAddKeyDialog = false }

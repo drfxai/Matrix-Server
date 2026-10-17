@@ -247,7 +247,7 @@ class MatrixShellCommand(
             val proc = process ?: return
 
             // Output banner to client
-            outputStream?.write("\r\n\u001B[32;1m=== MATRIX SERVER LINUX SHELL ===\u001B[0m\r\n".toByteArray())
+            outputStream?.write("\r\n\u001B[32;1m=== MATRIX SERVER ANDROID SHELL ===\u001B[0m\r\n".toByteArray())
             outputStream?.write("\u001B[32mLogged in as: ${config.username}\u001B[0m\r\n".toByteArray())
             outputStream?.write("\u001B[32mType 'matrix-cli' for system controls and projects.\u001B[0m\r\n\r\n".toByteArray())
             outputStream?.flush()
