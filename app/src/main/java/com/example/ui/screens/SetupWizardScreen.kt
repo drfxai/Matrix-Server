@@ -373,7 +373,7 @@ fun SetupWizardScreen(
                             .height(48.dp)
                             .testTag("setup_next_step_2"),
                         enabled = username.matches(Regex("^[A-Za-z0-9._-]{1,32}$")) &&
-                            password.length in 12..128 && (port.toIntOrNull() in 1024..65535)
+                            password.length in 12..128 && (port.toIntOrNull()?.let { it in 1024..65535 } == true)
                     ) {
                         Text("CONTINUE TO PERSISTENCE", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         Spacer(modifier = Modifier.width(8.dp))
