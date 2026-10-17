@@ -1,0 +1,86 @@
+name: Publish Android 7+ test APKs to Releases
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-android7-test-release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify signed test APKs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_RUN=39021469358
+          outcome="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq '.conclusion')"
+          test "$outcome" = "success"
+          mkdir -p dist staging/arm64 staging/universal
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name "MatrixServer-arm64-v8a" --dir staging/arm64
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name "MatrixServer-universal" --dir staging/universal
+          cp staging/arm64/MatrixServer-arm64-v8a.apk dist/MatrixServer-arm64-v8a.apk
+          cp staging/universal/MatrixServer-universal.apk dist/MatrixServer-universal.apk
+          test -s dist/MatrixServer-arm64-v8a.apk
+          test -s dist/MatrixServer-universal.apk
+          (cd dist && sha256sum -c <<'CHECKSUMS'
+          9159897ffec0cf7074c2c25141c12f6166056bd7186af8fb99a0cd344271b5e8  MatrixServer-arm64-v8a.apk
+          1e501a455d6015286abff2f23d16ac663c0abd457acdbf706b46fa9c7d411139  MatrixServer-universal.apk
+          CHECKSUMS
+          )
+          unzip -t dist/MatrixServer-arm64-v8a.apk >/dev/null
+          unzip -t dist/MatrixServer-universal.apk >/dev/null
+      - name: Write prerelease notes
+        shell: bash
+        run: |
+          cat > dist/RELEASE_NOTES.md <<'NOTES'
+          # Matrix Server — Android 7+ test APKs
+
+          **Test builds, NOT production-signed releases.**
+
+          These two APKs are made from the same tested source snapshot.
+          - **MatrixServer-arm64-v8a.apk**: optimized for 64-bit ARM phones.
+          - **MatrixServer-universal.apk**: bundles ARM64, 32-bit ARM, x86, and x86_64 native libraries.
+          - **Minimum Android version**: Android 7.0 (API 24); Android 6.0 and below are unsupported.
+          - **Application version unchanged**: versionName 1.0 / versionCode 1.
+
+          **Build verification:** source commit `a6c0c2d4ceda909ae7142bd900bd0f916709e22c`,
+          GitHub Actions run [39021469358](https://github.com/drfxai/Matrix-Server/actions/runs/39021469358):
+          unit tests, Android Lint, APK signature verification and minSdk checks passed.
+
+          **Security/installation notice:** Both APKs are signed with the Android debug identity.
+          They cannot update an installed app signed with a different key. Preserve application
+          data before uninstalling any existing installation. SSH/SFTP, background operation,
+          and authorization on physical Android 7 devices remain unverified. Use only on
+          networks you trust; this is not a hardened public SSH hosting service.
+
+          This test release does not introduce new signing credentials or alter the
+          official application version.
+          NOTES
+      - name: Publish or refresh test release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="v1.0.0-android7-test"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/MatrixServer-arm64-v8a.apk dist/MatrixServer-universal.apk --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" dist/MatrixServer-arm64-v8a.apk dist/MatrixServer-universal.apk \
+              --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+              --title "Matrix Server v1.0.0 — Android 7+ Test APKs" \
+              --notes-file dist/RELEASE_NOTES.md
+          fi
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease \
+            --jq '{url: .url, prerelease: .isPrerelease, assets: [.assets[].name]}'
