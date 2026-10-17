@@ -144,7 +144,8 @@ fun SettingsScreen(
     )
 
     val credentialsValid = username.matches(Regex("^[A-Za-z0-9._-]{1,32}$")) &&
-        isValidPort && (!passwordAuth || password.length in 12..128)
+        isValidPort && ((passwordAuth && password.length in 12..128) ||
+            (keyAuth && authorizedKeys.isNotEmpty()))
 
     val passwordStrength = remember(password) {
         when {
@@ -799,14 +800,15 @@ fun SettingsScreen(
                     onClick = {
                         passwordAuth = false
                         keyAuth = true
-                        Toast.makeText(context, "Strict Key-Only Authentication Enabled", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Key-only mode selected. Save and restart the server.", Toast.LENGTH_SHORT).show()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MatrixSurfaceVariant, contentColor = MatrixBlue),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .border(1.dp, MatrixBlue, RoundedCornerShape(8.dp))
-                        .testTag("enforce_key_only_button")
+                        .testTag("enforce_key_only_button"),
+                    enabled = authorizedKeys.isNotEmpty()
                 ) {
                     Icon(imageVector = Icons.Default.Security, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
@@ -1103,9 +1105,12 @@ fun SettingsScreen(
         AddAuthorizedKeyDialog(
             onDismiss = { showAddKeyDialog = false },
             onAddKey = { label, keyContent ->
-                viewModel.addAuthorizedKey(label, keyContent)
-                Toast.makeText(context, "Added new authorized key", Toast.LENGTH_SHORT).show()
-                showAddKeyDialog = false
+                if (viewModel.addAuthorizedKey(label, keyContent)) {
+                    Toast.makeText(context, "SSH public key accepted", Toast.LENGTH_SHORT).show()
+                    showAddKeyDialog = false
+                } else {
+                    Toast.makeText(context, "Invalid SSH public key format", Toast.LENGTH_LONG).show()
+                }
             }
         )
     }

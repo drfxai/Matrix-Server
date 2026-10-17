@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.ServerDatabase
@@ -18,6 +19,7 @@ import com.example.data.model.ServerMetrics
 import com.example.data.model.ServerState
 import com.example.data.model.TerminalLine
 import com.example.server.LinuxEnvironment
+import com.example.server.AuthorizedKeyValidator
 import com.example.server.ProcessSupervisor
 import com.example.server.TerminalRunner
 import com.example.service.MatrixServerService
@@ -30,6 +32,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.ServerSocket
@@ -40,6 +44,7 @@ class MatrixServerViewModel(application: Application) : AndroidViewModel(applica
     private val db = ServerDatabase.getInstance(application)
     private val projectDao = db.projectDao()
     private val keyDao = db.authorizedKeyDao()
+    private val sshKeyWriteMutex = Mutex()
     private val prefs = ServerPreferences(application)
     val linuxEnv = LinuxEnvironment(application)
     private val systemMonitor = SystemMonitor(application)
@@ -254,31 +259,62 @@ class MatrixServerViewModel(application: Application) : AndroidViewModel(applica
 
     // --- SSH Keys ---
 
-    fun addAuthorizedKey(label: String, keyContent: String) {
+    /**
+     * Validates the key before the UI closes. The database is the source of truth
+     * for keys managed from the app; update the SSH file atomically before DB commit.
+     */
+    fun addAuthorizedKey(label: String, keyContent: String): Boolean {
+        val trimmed = keyContent.trim()
+        val parsedKey = AuthorizedKeyValidator.parse(trimmed) ?: return false
+        val fingerprint = AuthorizedKeyValidator.fingerprint(parsedKey)
         viewModelScope.launch(Dispatchers.IO) {
-            val trimmed = keyContent.trim()
-            if (trimmed.isNotBlank()) {
-                val fp = "SHA256:" + trimmed.takeLast(16).map { "%02x".format(it.code) }.joinToString("")
-                val key = AuthorizedKey(
+            sshKeyWriteMutex.withLock {
+                val previous = keyDao.getAllKeys()
+                if (previous.any { it.fingerprint == fingerprint }) return@withLock
+                val item = AuthorizedKey(
                     label = label.ifBlank { "Authorized Device" },
                     publicKey = trimmed,
-                    fingerprint = fp
+                    fingerprint = fingerprint
                 )
-                keyDao.insert(key)
-
-                // Append to ~/.ssh/authorized_keys
-                val authFile = linuxEnv.authorizedKeysFile
-                authFile.appendText("\n$trimmed\n")
+                try {
+                    linuxEnv.writeAuthorizedKeys(previous.map { it.publicKey } + trimmed)
+                    try {
+                        keyDao.insert(item)
+                    } catch (e: Exception) {
+                        linuxEnv.writeAuthorizedKeys(previous.map { it.publicKey })
+                        throw e
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("MatrixServerViewModel", "Cannot register SSH public key", e)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(getApplication(), "Failed to save authorized SSH key", Toast.LENGTH_LONG).show()
+                    }
+                }
             }
         }
+        return true
     }
 
     fun deleteAuthorizedKey(key: AuthorizedKey) {
         viewModelScope.launch(Dispatchers.IO) {
-            keyDao.delete(key)
-            // Rebuild authorized_keys file
-            val allKeys = keyDao.getAllKeys()
-            linuxEnv.authorizedKeysFile.writeText(allKeys.joinToString("\n") { it.publicKey })
+            sshKeyWriteMutex.withLock {
+                val previous = keyDao.getAllKeys()
+                val remaining = previous.filterNot { it.id == key.id }
+                try {
+                    linuxEnv.writeAuthorizedKeys(remaining.map { it.publicKey })
+                    try {
+                        keyDao.delete(key)
+                    } catch (e: Exception) {
+                        linuxEnv.writeAuthorizedKeys(previous.map { it.publicKey })
+                        throw e
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("MatrixServerViewModel", "Cannot revoke SSH public key", e)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(getApplication(), "Failed to revoke authorized SSH key", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
         }
     }
 

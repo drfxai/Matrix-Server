@@ -132,6 +132,9 @@ dependencies {
   implementation(libs.retrofit)
   implementation(libs.sshd.core)
   implementation(libs.sshd.sftp)
+  // Apache MINA's Ed25519 SSH implementation requires an available crypto provider.
+  // Avoid the outdated net.i2p.crypto EdDSA implementation.
+  implementation("org.bouncycastle:bcprov-jdk18on:1.82")
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)

@@ -28,9 +28,9 @@ class TerminalRunner(
 
     init {
         linuxEnv.initializeEnvironment()
-        appendLine("MATRIX LINUX TERMINAL v1.0", TerminalLineType.SYSTEM)
+        appendLine("MATRIX ANDROID SHELL v1.0", TerminalLineType.SYSTEM)
         appendLine("Environment: POSIX userspace (/system/bin/sh)", TerminalLineType.SYSTEM)
-        appendLine("Type 'help', 'apt update', or 'matrix-cli' for system information.", TerminalLineType.SYSTEM)
+        appendLine("Type 'help' or 'matrix-cli' for system information.", TerminalLineType.SYSTEM)
         appendPromptLine()
     }
 
@@ -38,7 +38,7 @@ class TerminalRunner(
         val trimmed = commandStr.trim()
         if (trimmed.isEmpty()) return@withContext
 
-        // Ensure binaries & apt scripts are initialized in binDir
+        // Initialize app-private Android shell files; no Linux distribution is bundled.
         linuxEnv.initializeEnvironment()
 
         commandHistory.add(trimmed)
@@ -53,10 +53,9 @@ class TerminalRunner(
                     return@withContext
                 }
                 trimmed == "help" -> {
-                    appendLine("MATRIX Built-in Shell Utilities & Package Manager:", TerminalLineType.SYSTEM)
-                    appendLine("  apt update / apt install <pkg> - Matrix Android Package Manager", TerminalLineType.STDOUT)
-                    appendLine("  matrix-cli [status|projects] - System metrics and projects", TerminalLineType.STDOUT)
-                    appendLine("  neofetch / fastfetch - System hardware & kernel banner", TerminalLineType.STDOUT)
+                    appendLine("Available Android Shell Commands:", TerminalLineType.SYSTEM)
+                    appendLine("  matrix-cli [status|projects] - Local status and project listing", TerminalLineType.STDOUT)
+                    appendLine("  apt, Python and Node.js require a separately installed compatible runtime.", TerminalLineType.STDOUT)
                     appendLine("  ls, ps, top, cat, mkdir, cp, rm - Native POSIX commands", TerminalLineType.STDOUT)
                     appendLine("  uname -a, df -h, free, id - Hardware and OS diagnostics", TerminalLineType.STDOUT)
                     appendLine("  clear - Clear terminal screen", TerminalLineType.STDOUT)

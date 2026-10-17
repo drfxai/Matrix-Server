@@ -6,7 +6,7 @@ The application provides an Android app-sandboxed shell via \`/system/bin/sh\`
 and an Apache MINA SSHD network listener. It **does not** provide root access,
 a Linux distribution, a container, a working \`apt\` repository, or Python/Node.js
 interpreters by default. Earlier demo wrappers which printed simulated results
-are no longer installed, and recognized previously generated shims are removed.
+are no longer installed, and recognized previously generated shims are removed. The built-in terminal\nhelp does not advertise an unavailable package manager.
 
 Real Python, Node.js, compiler toolchains, and package management need a separate,
 ABI-compatible verified runtime with its own lifecycle, integrity verification,
@@ -36,3 +36,16 @@ A physical-device test must verify successful and unsuccessful password/key
 login, SFTP directory confinement, device reboot, host-key continuity,
 concurrent sessions, brute-force rate limits, and upgrades from older builds.
 No signed APK or real Linux userspace is implied by this source change.
+
+## Public-key management
+
+Only parseable, single-line SSH public keys are accepted through the app. The
+fingerprint is computed from the decoded SSH public key, not a substring of the
+input. In-app key additions and revocations rewrite `authorized_keys` using
+an atomic file replacement. Database-managed keys are authoritative when edited
+through the UI; editing the file directly through SSH can be overwritten by a
+later UI key change. Changes to disk are checked on the next key-auth attempt.
+
+The host fingerprint shown in the app is derived from the actual persisted SSH
+public host key. If the server key has not been created or cannot be read, the UI
+reports `Unavailable`; it never displays a fabricated fingerprint.

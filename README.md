@@ -1,93 +1,72 @@
-# MATRIX SERVER
-## Professional Android-to-Linux Development Server
+# Matrix Server
 
-Turn any Android smartphone into a high-performance, remotely accessible Linux development server with real OpenSSH access, persistent project execution, intelligent background management, and one-tap activation.
+**Android SSH/SFTP host and app-sandboxed process supervisor.**
 
----
+Matrix Server provides an SSH daemon on an Android phone using Apache MINA SSHD.
+After successful authentication, sessions run Android's native `/system/bin/sh`
+with the app's permissions. This is **not a rooted Linux machine, Linux distro,
+container, VPS, or built-in Python/Node.js hosting platform**.
 
-## ⚡ Quick Start (One-Tap Activation)
+## Supported today
 
-1. **Install & Launch** MATRIX SERVER on your Android phone.
-2. Complete the **3-step Setup Wizard** (sets your username and password).
-3. Tap the glowing **START SERVER** button on the Console.
-4. Tap the **Copy SSH Command** button.
-5. On your computer (Windows, macOS, or Linux), paste and run the command:
-   ```bash
-   ssh matrix@192.168.1.120 -p 2222
-   ```
-6. Enter your password (`matrix1337` by default) or authenticate using your SSH key.
-7. You are now inside the phone's native Linux userspace! Run real Linux commands, manage projects, and deploy services.
+- SSH interactive shell and remote command execution in Android's app sandbox.
+- SFTP access under Android application permissions (not an enforced chroot).
+- User-configured SSH password and approved public keys.
+- Persistent foreground service, optional WakeLock, and local project supervision.
+- Android dashboard, terminal, file tools and diagnostics.
 
----
+## Connect from another device
 
-## 🖥️ Client Connection Instructions
+1. Install the Android app and complete its initial configuration.
+2. Choose a unique SSH username and strong password of 12–128 characters.
+   There is **no built-in or default SSH password**.
+3. Start the server from the application dashboard.
+4. Identify the phone's LAN IP address. Keep both devices on a trusted network.
+5. From your computer, run:
 
-### Windows (PowerShell, Windows Terminal, or CMD)
-```powershell
-ssh matrix@<PHONE_IP> -p 2222
-```
-
-### macOS & Linux Terminal
 ```bash
-ssh matrix@<PHONE_IP> -p 2222
+ssh -p 2222 matrix@PHONE_LAN_IP
 ```
 
-### Remote SFTP (FileZilla, WinSCP, Cyberduck)
-- **Protocol:** SFTP (SSH File Transfer Protocol)
-- **Host:** `<PHONE_IP>`
-- **Port:** `2222`
-- **Username:** `matrix`
-- **Password:** `<YOUR_PASSWORD>`
+Replace the port, username and IP address with values shown in the app.
+To transfer files, use `sftp -P 2222 matrix@PHONE_LAN_IP`.
+Verify the host-key fingerprint reported in the app when it is available;
+do not accept an unexpected host-key rotation without investigation.
 
-### VS Code Remote - SSH Extension
-Add to your `~/.ssh/config`:
-```ssh-config
-Host MatrixPhone
-    HostName <PHONE_IP>
-    User matrix
-    Port 2222
-```
+## SSH security
 
----
+- All authentication methods are disabled or denied until the user configures
+  a valid password or a valid approved public key.
+- Existing weak legacy passwords are rejected; approved strong legacy passwords
+  are migrated out of plaintext preferences to Android Keystore AES-GCM storage.
+- App-managed public keys are parsed, fingerprinted and persisted atomically.
+- Android backups are disabled for this application.
+- The SSH listener binds to network interfaces for LAN access. Do **not** forward
+  its port directly to the internet. Use a private secure tunnel or VPN if remote
+  connectivity is needed, and test it on your own network.
+- Restrict network reachability with your router or firewall. This app does not
+  currently implement a built-in connection firewall or brute-force rate limiter.
+- Restart the SSH service after changing authentication settings.
 
-## 🌐 Remote Access Anywhere via Tailscale Private VPN
+## What this is not
 
-To access your phone's server outside your home Wi-Fi (from cellular data, coffee shops, or remote networks) without port forwarding or risking public internet exposure:
+The Android shell offers platform tools permitted to the application UID.
+`apt`, `dpkg`, `pip`, `python`, `node`, and other Unix packages are **not installed**
+by Matrix Server. Project templates requiring these programs will fail cleanly
+until a compatible, separately installed runtime is available.
 
-1. Install the official **Tailscale** app on your Android phone and log in.
-2. Install **Tailscale** on your laptop or workstation and log into the same network.
-3. MATRIX SERVER automatically detects your Tailscale `100.x.y.z` IP and displays it on the Dashboard.
-4. Connect from anywhere in the world:
-   ```bash
-   ssh matrix@100.x.y.z -p 2222
-   ```
+Installing a rootless Linux distribution is a separate engineering milestone:
+it requires verified ARM64 binaries, isolated filesystem management, package
+downloads, resource controls and tests on a physical device.
 
----
+## Build and verify
 
-## 🚀 Managed Projects & Runtimes
+The GitHub Actions workflow `.github/workflows/android-ci.yml` builds a
+**debug-signed APK**, runs unit tests and Android Lint, and attaches the APK
+to successful runs. These are test artifacts, not production releases.
 
-MATRIX SERVER includes a robust **Process Supervisor** that executes development workloads in the background, logs stdout/stderr in real-time, and provides bounded exponential backoff auto-restarts on crash:
+Physical-device SSH/SFTP login, host-key continuity, secure upgrades, Android
+background behavior and network attack testing are still required before
+a production signed APK is published.
 
-- **Matrix Web Server (Python):** Serves an HTTP dashboard on port `8080`.
-- **API Microservice (Node.js):** REST API endpoints on port `8081`.
-- **System Worker (Shell):** Background automation script logging hardware and storage metrics.
-- **Custom Projects:** Create any custom Python script, Node.js service, or Shell daemon with custom ports and auto-restart policies.
-
----
-
-## 🔋 Screen-Off Persistence & Battery Optimization
-
-MATRIX SERVER is specifically engineered to keep running when the phone's screen is locked or turned off:
-- **Foreground Service:** Runs an active Android foreground service with a persistent ongoing notification showing live status and quick actions ("STOP SERVER", "COPY SSH").
-- **Partial WakeLock:** Automatically holds `PowerManager.PARTIAL_WAKE_LOCK` to keep the CPU active without draining the screen display.
-- **Battery Optimization Exemption:** In Android Settings > Apps > MATRIX SERVER > Battery, select **Unrestricted** to prevent the OS from killing background background processes during deep sleep.
-- **Low-Power Mode:** Toggleable in Settings to reduce canvas animations and polling intervals.
-
----
-
-## 🔒 Security & Privacy
-
-- **Non-Privileged Port:** Listens on port `2222` by default.
-- **No Plaintext Leaks:** Passwords and keys are never displayed in notifications or exported logs.
-- **Public-Key Authentication:** Full support for `~/.ssh/authorized_keys` and Ed25519/RSA keys.
-- **Host Key Verification:** SHA-256 host key fingerprint is generated on first launch and displayed on the Console for verification.
+See [Security and Runtime Status](SECURITY_AND_RUNTIME.md) for additional details.
