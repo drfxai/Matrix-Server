@@ -14,12 +14,24 @@ android {
 
   defaultConfig {
     applicationId = "com.aistudio.matrixserver.kxmt"
-    minSdk = 26
+    // Android 7.0 (API 24): requires core library NIO desugaring below.
+    minSdk = 24
     targetSdk = 36
     versionCode = 1
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+  }
+
+  // Multi-APK delivery: ABI-optimized arm64-v8a plus one full universal APK.
+  // The intermediate ABI splits for other architectures are not published.
+  splits {
+    abi {
+      isEnable = true
+      reset()
+      include("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+      isUniversalApk = true
+    }
   }
 
   // Do not remove or modify these signingConfigs. They are necessary for building, installing,
@@ -56,6 +68,9 @@ android {
     }
   }
   compileOptions {
+    // Apache MINA SSHD and authorized_keys management use java.nio.file,
+    // which is unavailable natively on Android 7 without this.
+    isCoreLibraryDesugaringEnabled = true
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
   }
@@ -88,6 +103,7 @@ googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.W
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
 dependencies {
+  coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
   implementation(platform(libs.androidx.compose.bom))
   implementation(platform(libs.firebase.bom))
   // implementation(libs.accompanist.permissions)

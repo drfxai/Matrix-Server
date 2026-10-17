@@ -2,7 +2,7 @@ name: Android security and debug build
 
 on:
   push:
-    branches: [main, 'security/**']
+    branches: [main, 'security/**', 'build/**']
   pull_request:
   workflow_dispatch:
 
@@ -43,10 +43,41 @@ jobs:
           gradle-version: '9.3.1'
       - name: Unit tests, lint and debug APK
         run: gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
-      - name: Upload debug APK
-        if: success()
+      - name: Prepare and verify both installable APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          for flavor in arm64-v8a universal; do
+            source_apk="app/build/outputs/apk/debug/app-${flavor}-debug.apk"
+            target_apk="dist/MatrixServer-${flavor}.apk"
+            test -s "$source_apk"
+            cp "$source_apk" "$target_apk"
+          done
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          AAPT="$(find "$SDK_ROOT/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$AAPT" && test -x "$APKSIGNER"
+          for apk in dist/*.apk; do
+            echo "Verifying $apk"
+            "$APKSIGNER" verify --verbose "$apk"
+            "$AAPT" dump badging "$apk" | grep -E "^package:|^sdkVersion:|^native-code:"
+            "$AAPT" dump badging "$apk" | grep -q "sdkVersion:'24'"
+            sha256sum "$apk"
+          done
+          printf '%s\n' "Android 7.0+ minimum OS. Debug signature; NOT a production release." > dist/BUILD-NOTES.txt
+
+      - name: Upload arm64-v8a APK
         uses: actions/upload-artifact@v4
         with:
-          name: matrix-server-debug
-          path: app/build/outputs/apk/debug/*.apk
+          name: MatrixServer-arm64-v8a
+          path: dist/MatrixServer-arm64-v8a.apk
           if-no-files-found: error
+          retention-days: 30
+      - name: Upload universal APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MatrixServer-universal
+          path: dist/MatrixServer-universal.apk
+          if-no-files-found: error
+          retention-days: 30
