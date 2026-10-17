@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Server chassis outer body -->
+    <path
+        android:fillColor="#0D2614"
+        android:strokeColor="#00FF66"
+        android:strokeWidth="2.5"
+        android:pathData="M28,26 h52 a4,4 0 0,1 4,4 v48 a4,4 0 0,1 -4,4 h-52 a4,4 0 0,1 -4,-4 v-48 a4,4 0 0,1 4,-4 z" />
+
+    <!-- Server shelf 1 divider -->
+    <path
+        android:pathData="M24,44 h60 M24,62 h60"
+        android:strokeColor="#00FF66"
+        android:strokeWidth="1.8" />
+
+    <!-- Shelf 1: Terminal prompt '>_' in neon green -->
+    <path
+        android:pathData="M34,31 L40,35 L34,39"
+        android:strokeColor="#00FF66"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M43,39 h6"
+        android:strokeColor="#00FF66"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round" />
+
+    <!-- Shelf 1: Status LEDs -->
+    <path
+        android:pathData="M70,35 a2,2 0 1,0 0.01,0 Z"
+        android:fillColor="#00FF66" />
+    <path
+        android:pathData="M76,35 a2,2 0 1,0 0.01,0 Z"
+        android:fillColor="#00FF66" />
+
+    <!-- Shelf 2: Activity slots / ports -->
+    <path
+        android:pathData="M34,51 h16 M34,55 h10"
+        android:strokeColor="#00E65B"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M70,53 a2,2 0 1,0 0.01,0 Z"
+        android:fillColor="#00FF66" />
+    <path
+        android:pathData="M76,53 a2,2 0 1,0 0.01,0 Z"
+        android:fillColor="#00FF66" />
+
+    <!-- Shelf 3: Server bottom bays and data LED -->
+    <path
+        android:pathData="M34,69 h8 M46,69 h8 M58,69 h8"
+        android:strokeColor="#00CC52"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M74,69 a2.5,2.5 0 1,0 0.01,0 Z"
+        android:fillColor="#00FF66" />
+</vector>
