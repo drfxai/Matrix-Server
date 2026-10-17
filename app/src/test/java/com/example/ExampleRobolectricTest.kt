@@ -36,7 +36,8 @@ class ExampleRobolectricTest {
 
         assertEquals(2222, initialConfig.port)
         assertEquals("matrix", initialConfig.username)
-        assertTrue(initialConfig.passwordAuthEnabled)
+        assertFalse(initialConfig.passwordAuthEnabled)
+        assertEquals("", initialConfig.password)
         assertTrue(initialConfig.publicKeyAuthEnabled)
         assertTrue(initialConfig.wakeLockEnabled)
 
