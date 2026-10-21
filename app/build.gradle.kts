@@ -17,10 +17,9 @@ android {
     // Android 7.0 (API 24): requires core library NIO desugaring below.
     minSdk = 24
     targetSdk = 36
-    // Internal build increment for the Maximus VPN SSH interoperability APK refresh.
-    // Preserve public versionName, applicationId, and existing release signing identity.
-    // Verified SSH endpoint-selection repair; keep public version and signing identity.
-    versionCode = 3
+    // Internal build increment for verified SSH reliability improvements.
+    // Preserve public versionName, applicationId, and signing configuration.
+    versionCode = 4
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
