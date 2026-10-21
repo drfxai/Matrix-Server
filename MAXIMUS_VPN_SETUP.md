@@ -14,11 +14,10 @@ bundled Mihomo SSH outbound.
 3. Check that both devices have network reachability (same trusted LAN, or a
    separately configured private overlay with reachable phone address).
    A cellular/CGNAT IP is generally not directly reachable from the internet.
-4. Press **Copy Maximus VPN Profile**. This exports JSON that is valid as
-   Mihomo/Clash YAML. It includes the SSH username, password, endpoint,
+4. Press **Copy Maximus VPN Profile**. This exports explicit Mihomo/Clash YAML. It includes the SSH username, password, endpoint,
    and a **pinned host public key** from the active SSH daemon.
 5. On the **other device**, open Maximus VPN > Add server > import/advanced
-   configuration, paste the generated Mihomo YAML/JSON, select the SSH profile,
+   configuration, paste the generated Mihomo YAML, select the SSH profile,
    and connect using the bundled Mihomo engine.
 
 Be careful: the export contains a live password. Do not upload it to public
@@ -43,7 +42,7 @@ Revoking the SSH password invalidates previously imported configurations.
 
 - Confirm SSH login and pinned host key from a second device.
 - Confirm a direct-tcpip channel to a publicly reachable **TCP** endpoint.
-- Import the JSON into Maximus VPN, verify the Mihomo executable is bundled,
+- Import the YAML into Maximus VPN, verify the Mihomo executable is bundled,
   and test egress via its connection verification and IP-check tools.
 - Confirm that UDP-only traffic is not silently claimed as supported.
 - Verify failed authentication, wrong host key, private-IP forwarding rejection,
