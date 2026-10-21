@@ -29,6 +29,7 @@ import com.example.data.model.ServerStatusType
 import com.example.server.LinuxEnvironment
 import com.example.server.ProcessSupervisor
 import com.example.server.SshServerManager
+import com.example.server.LocalSshProtocolProbe
 import com.example.util.NetworkUtils
 import com.example.util.SystemMonitor
 import kotlinx.coroutines.CoroutineScope
@@ -83,6 +84,19 @@ class MatrixServerService : Service() {
         sharedSshServerManager = sshServerManager
         sharedLinuxEnvironment = linuxEnvironment
 
+        // The state flows live in the process even if Android recreates the Service.
+        // A newly constructed manager has no listening daemon; stale ONLINE state
+        // must never suppress a subsequent start or mislead the Maximus client.
+        if (_serverState.value.isRunning && !sshServerManager.isServerRunning.value) {
+            _serverState.value = ServerState.OFF
+            _connectionHealth.value = ConnectionHealth(
+                status = ServerStatusType.STOPPED,
+                issueType = ConnectionIssueType.DAEMON_ERROR,
+                headline = "SSH Service Recreated",
+                detailMessage = "The previous SSH listener is no longer verified. Start the server again."
+            )
+        }
+
         createNotificationChannel()
         registerNetworkCallback()
     }
@@ -99,7 +113,8 @@ class MatrixServerService : Service() {
     }
 
     private fun startMatrixServer() {
-        if (_serverState.value.isRunning || _serverState.value.isTransitioning) return
+        if (_serverState.value.isTransitioning ||
+            (_serverState.value.isRunning && sshServerManager.isServerRunning.value)) return
 
         _serverState.value = ServerState.STARTING
         _connectionHealth.value = _connectionHealth.value.copy(
@@ -220,22 +235,13 @@ class MatrixServerService : Service() {
         }
     }
 
-    private fun probeLocalSocket(port: Int): Pair<Boolean, Long> {
-        val startTime = System.currentTimeMillis()
-        return try {
-            Socket().use { socket ->
-                socket.connect(InetSocketAddress("127.0.0.1", port), 500)
-                val elapsed = System.currentTimeMillis() - startTime
-                Pair(true, elapsed)
-            }
-        } catch (_: Exception) {
-            Pair(false, -1L)
-        }
-    }
-
     private fun performHealthProbe(config: ServerConfig) {
         val activeSessions = sshServerManager.activeSessions.value
-        val (isSocketOk, latency) = probeLocalSocket(config.port)
+        // Verify an SSH identification banner, not just the fact that a TCP
+        // socket accepted a connection. This cannot prove external reachability.
+        val localProbe = LocalSshProtocolProbe.check(config.port)
+        val isSocketOk = localProbe.responsive
+        val latency = localProbe.latencyMs
         val lanIp = NetworkUtils.getLocalIpAddress()
         val vpnIp = NetworkUtils.getVpnIpAddress()
         val isWifi = NetworkUtils.isWifiConnected(this)
@@ -256,7 +262,7 @@ class MatrixServerService : Service() {
                     ServerStatusType.CONNECTION_ISSUE,
                     ConnectionIssueType.SOCKET_TIMEOUT,
                     "Socket Probe Unresponsive",
-                    "Port ${config.port} refused or timed out on local TCP probe. SSH clients cannot establish a handshake."
+                    "No valid SSH identification banner on localhost:${config.port}. Check whether the SSH daemon is running and bound to the configured port."
                 )
             }
             !hasNetwork -> {
@@ -272,7 +278,7 @@ class MatrixServerService : Service() {
                     ServerStatusType.RUNNING,
                     ConnectionIssueType.NONE,
                     "SSH Listener Running (Local Check)",
-                    "Local TCP probe passed (${latency}ms) on port ${config.port}. Remote SSH, forwarding and VPN traffic are NOT yet verified."
+                    "SSH protocol banner received on localhost:${config.port} (${latency}ms). Authentication, forwarding and remote client access are NOT yet verified."
                 )
             }
         }
@@ -321,6 +327,7 @@ class MatrixServerService : Service() {
                     activeSessions = activeSessions,
                     runningProjects = runningProjects,
                     sshPort = config.port,
+                    sshUsername = config.username,
                     uptimeSeconds = uptimeSec
                 )
                 _metricsState.value = metrics
@@ -452,11 +459,21 @@ class MatrixServerService : Service() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
+        // A foreground-service shutdown must not leave a listening SSH daemon
+        // alive without a user-visible notification. Destroy is also invoked
+        // after OS/service recreation and failed starts.
+        if (::sshServerManager.isInitialized) {
+            runCatching { sshServerManager.stopServer() }
+        }
+        _serverState.value = ServerState.OFF
         releaseWakeLock()
-        networkCallback?.let { connectivityManager?.unregisterNetworkCallback(it) }
+        networkCallback?.let { runCatching { connectivityManager?.unregisterNetworkCallback(it) } }
         serviceScope.cancel()
+        sharedSshServerManager = null
+        sharedProcessSupervisor = null
+        sharedLinuxEnvironment = null
         instance = null
+        super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

@@ -74,11 +74,13 @@ See [Security and Runtime Status](SECURITY_AND_RUNTIME.md) for additional detail
 
 ## Current Matrix Server + Maximus VPN SSH test release
 
-**Updated build: Matrix Server v1.0.0 (internal build 2, 2026-10-21).**
+**Build 4: Matrix Server v1.0.0 (internal versionCode 4, Android 7+, 2026-10-21).**
 
-- [Download verified test release (ARM64 / Universal APK)](https://github.com/drfxai/Matrix-Server/releases/tag/v1.0.0-maximus-ssh-test).
-- [Release notes, checksums, upgrade warnings and Maximus VPN import guide](RELEASE_NOTES_MAXIMUS.md).
-- The old `v1.0.0-android7-test` tag is historical and does **not** contain the Maximus VPN TCP forwarding improvements.
+- [Latest SSH reliability test release — ARM64 and Universal APKs](https://github.com/drfxai/Matrix-Server/releases/tag/v1.0.0-ssh-reliability-test).
+- [SSH forwarding and Maximus VPN setup guide](MAXIMUS_VPN_SETUP.md).
+- Fixes remote SSH `exec("sh -s")` script input delivery, checks the SSH protocol banner, prevents stale daemon status, and exports SSH commands with the configured username.
+- Retains client-selectable LAN/private-overlay endpoint export and host-key-pinned Mihomo SSH TCP forwarding.
+- Historical test builds: [Build 3](https://github.com/drfxai/Matrix-Server/releases/tag/v1.0.0-overlay-ssh-test), [Build 2](https://github.com/drfxai/Matrix-Server/releases/tag/v1.0.0-maximus-ssh-test).
 
 **These are debug-signed test APKs, not production releases.** Signing-certificate
 continuity for in-place upgrade has not been established. Do not uninstall an

@@ -20,6 +20,7 @@ class SystemMonitor(private val context: Context) {
         activeSessions: Int,
         runningProjects: Int,
         sshPort: Int,
+        sshUsername: String = "matrix",
         uptimeSeconds: Long
     ): ServerMetrics {
         val cpuUsage = readCpuUsage()
@@ -44,6 +45,7 @@ class SystemMonitor(private val context: Context) {
             lanIpAddress = lanIp,
             vpnIpAddress = vpnIp,
             sshPort = sshPort,
+            sshUsername = sshUsername,
             uptimeSeconds = uptimeSeconds,
             lastHealthCheckTime = System.currentTimeMillis()
         )

@@ -27,7 +27,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       SOURCE_RUN: ${{ github.event.workflow_run.id }}
       SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
-      RELEASE_TAG: v1.0.0-overlay-ssh-test
+      RELEASE_TAG: v1.0.0-ssh-reliability-test
 
     steps:
       - uses: actions/checkout@v4
@@ -84,7 +84,7 @@ jobs:
             "$APKSIGNER" verify --verbose "$artifact"
             metadata="$("$AAPT" dump badging "$artifact")"
             printf '%s\n' "$metadata" | grep -q "name='com.aistudio.matrixserver.kxmt'"
-            printf '%s\n' "$metadata" | grep -q "versionCode='3'"
+            printf '%s\n' "$metadata" | grep -q "versionCode='4'"
             printf '%s\n' "$metadata" | grep -q "versionName='1.0'"
             printf '%s\n' "$metadata" | grep -q "sdkVersion:'24'"
             "$APKSIGNER" verify --print-certs "$artifact" > "$artifact.cert-check.txt"
@@ -95,18 +95,19 @@ jobs:
           (cd dist && sha256sum MatrixServer-arm64-v8a.apk MatrixServer-universal.apk > SHA256SUMS.txt)
           (cd dist && sha256sum -c SHA256SUMS.txt)
           cat > dist/RELEASE_NOTES.md <<EOF
-          # Matrix Server v1.0.0 — Private overlay SSH endpoint repair test build
+          # Matrix Server v1.0.0 — SSH execution and readiness reliability test build
 
-          Retains **opt-in authenticated SSH TCP forwarding** for Maximus VPN via
-          the Mihomo SSH outbound. Repairs remote SSH export endpoint selection:
-          choose LAN, VPN/overlay or a manually entered client-reachable host.
-          Validates addresses, separates tun/VPN IP from LAN IP, and corrects
-          local-only status and port diagnostics. Includes regression tests for
-          the private 10.247.210.65 address reported as "Not reachable".
-          This changes Matrix Server ONLY, not the Maximus VPN app.
+          Fixes SSH exec("sh -s") script delivery by forwarding the remote
+          channel's stdin into the Android child process. Adds end-to-end
+          local SSH handshake and host-key pin tests, plus SSH-banner readiness
+          checks (instead of assuming any open TCP port is SSH). Clears stale
+          service startup/shutdown state and fixes custom username in copied SSH
+          commands. Retains secure opt-in TCP forwarding and explicit LAN or
+          private-overlay endpoint selection from Build 3.
+          Only Matrix Server was changed; Maximus VPN was NOT modified.
 
           - ARM64 and universal APKs for Android 7.0+ (API 24+).
-          - Public app version remains 1.0; internal versionCode is 3.
+          - Public app version remains 1.0; internal versionCode is 4.
           - GitHub Actions source run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN
           - Git source commit: $SOURCE_SHA
           - SHA256SUMS.txt verifies the published APKs.
@@ -137,7 +138,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$SOURCE_SHA" \
             --prerelease \
-            --title "Matrix Server v1.0.0 (Build 3) — SSH Overlay Endpoint Fix (Android 7+)" \
+            --title "Matrix Server v1.0.0 (Build 4) — SSH Reliability (Android 7+)" \
             --notes-file dist/RELEASE_NOTES.md
           gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease \
             --jq '{url: .url, prerelease: .isPrerelease, assets: [.assets[].name]}'

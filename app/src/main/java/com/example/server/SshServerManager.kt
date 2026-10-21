@@ -315,7 +315,9 @@ class MatrixShellCommand(
 class MatrixExecCommand(
     private val linuxEnv: LinuxEnvironment,
     private val config: ServerConfig,
-    private val commandString: String
+    private val commandString: String,
+    // Injectable only for desktop JVM integration tests. Android always uses its own shell.
+    private val shellExecutable: String = "/system/bin/sh"
 ) : Command, Runnable {
 
     private var inputStream: InputStream? = null
@@ -336,7 +338,7 @@ class MatrixExecCommand(
 
     override fun run() {
         try {
-            val pb = ProcessBuilder("/system/bin/sh", "-c", commandString)
+            val pb = ProcessBuilder(shellExecutable, "-c", commandString)
             pb.directory(linuxEnv.homeDir)
             val pEnv = pb.environment()
             pEnv["HOME"] = linuxEnv.homeDir.absolutePath
@@ -358,9 +360,26 @@ class MatrixExecCommand(
             }
             errThread.start()
 
+            // SSH exec clients (including Maximus Panels) invoke `sh -s` and send
+            // their scripts through the SSH channel's stdin. Without this pump,
+            // `sh -s` blocks indefinitely or receives no script.
+            val inThread = Thread({
+                try {
+                    proc.outputStream.use { stdin ->
+                        inputStream?.copyTo(stdin)
+                    }
+                } catch (_: java.io.IOException) {
+                    // The child may close stdin early; its exit status is authoritative.
+                }
+            }, "MatrixExecStdin").apply {
+                isDaemon = true
+                start()
+            }
+
             val exitCode = proc.waitFor()
-            outThread.join(1000)
-            errThread.join(1000)
+            // Do not report completion until stdout and stderr have drained.
+            outThread.join(2000)
+            errThread.join(2000)
             outputStream?.flush()
             exitCallback?.onExit(exitCode)
         } catch (e: Exception) {
