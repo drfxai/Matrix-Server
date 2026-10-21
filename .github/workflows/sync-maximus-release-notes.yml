@@ -1,0 +1,56 @@
+name: Sync verified Matrix Server test release notes
+
+# Keep the release landing page accurate without replacing already verified APKs.
+on:
+  push:
+    branches: [main]
+    paths:
+      - RELEASE_NOTES_MAXIMUS.md
+      - .github/workflows/sync-maximus-release-notes.yml
+
+permissions:
+  contents: write
+
+jobs:
+  release-notes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: v1.0.0-maximus-ssh-test
+      SOURCE_SHA: 431f5f8a4923cb7d2431ec0ae533b314ad507e02
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify release source and immutable APK digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          release="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+          test "$(jq -r '.target_commitish' <<<"$release")" = "$SOURCE_SHA"
+          test "$(jq -r '.prerelease' <<<"$release")" = "true"
+          test "$(jq -r '.draft' <<<"$release")" = "false"
+          verify_digest() {
+            local asset="$1" expected="$2" found
+            found="$(jq -r --arg filename "$asset" '.assets[] | select(.name == $filename) | .digest' <<<"$release")"
+            test "$found" = "$expected"
+          }
+          verify_digest "MatrixServer-arm64-v8a.apk" "sha256:93dfcb3970057a1b5b296bc4d011e35f86f8739510c9dca868bcc6ac7440496f"
+          verify_digest "MatrixServer-universal.apk" "sha256:bcb7505fd77c8f8a51a0c13b434dd8d4b815431c017355ca20bb9b18be729ea1"
+          verify_digest "SHA256SUMS.txt" "sha256:206862f8045c4b6547ae7f822df6140380ecad964b1cc5a3a63e0a6031286f12"
+      - name: Update prerelease description only; do not touch APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release edit "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Matrix Server v1.0.0 (Build 2) — Maximus VPN SSH Test · Android 7+" \
+            --notes-file RELEASE_NOTES_MAXIMUS.md \
+            --prerelease
+          expected="$(cat RELEASE_NOTES_MAXIMUS.md)"
+          actual="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json body --jq '.body')"
+          test "$actual" = "$expected"
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json url,name,isPrerelease,assets \
+            --jq '{url: .url, name: .name, prerelease: .isPrerelease, assets: [.assets[].name]}'
