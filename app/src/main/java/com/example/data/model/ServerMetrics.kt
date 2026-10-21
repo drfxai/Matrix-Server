@@ -14,14 +14,15 @@ data class ServerMetrics(
     val lanIpAddress: String = "127.0.0.1",
     val vpnIpAddress: String? = null,
     val sshPort: Int = 2222,
+    val sshUsername: String = "matrix",
     val uptimeSeconds: Long = 0L,
     val lastHealthCheckTime: Long = System.currentTimeMillis()
 ) {
     val sshCommand: String
-        get() = "ssh matrix@$lanIpAddress -p $sshPort"
+        get() = "ssh $sshUsername@$lanIpAddress -p $sshPort"
 
     val vpnSshCommand: String?
-        get() = vpnIpAddress?.let { "ssh matrix@$it -p $sshPort" }
+        get() = vpnIpAddress?.let { "ssh $sshUsername@$it -p $sshPort" }
 
     val formattedUptime: String
         get() {
