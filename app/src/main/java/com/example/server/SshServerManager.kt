@@ -62,6 +62,7 @@ class SshServerManager(
 
     private val sessionCounter = AtomicInteger(0)
 
+    @Synchronized
     fun startServer(config: ServerConfig): Result<Unit> {
         return try {
             if (_isServerRunning.value) {
