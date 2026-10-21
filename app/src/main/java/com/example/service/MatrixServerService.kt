@@ -327,6 +327,7 @@ class MatrixServerService : Service() {
                     activeSessions = activeSessions,
                     runningProjects = runningProjects,
                     sshPort = config.port,
+                    sshUsername = config.username,
                     uptimeSeconds = uptimeSec
                 )
                 _metricsState.value = metrics
