@@ -1,86 +1,137 @@
-name: Publish Android 7+ test APKs to Releases
+name: Publish verified Matrix Server Maximus VPN SSH test APKs
 
+# Publication consumes only successful Android CI artifacts from the current
+# main-branch commit. Never reuse a pinned historical workflow run or APK.
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/publish-android7-test-release.yml
-  workflow_dispatch:
+  workflow_run:
+    workflows: ["Android security and debug build"]
+    types: [completed]
 
 permissions:
   contents: write
   actions: read
 
+concurrency:
+  group: matrix-server-maximus-ssh-test-release
+  cancel-in-progress: false
+
 jobs:
   publish:
+    if: >
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: ${{ github.event.workflow_run.id }}
+      SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+      RELEASE_TAG: v1.0.0-maximus-ssh-test
+
     steps:
       - uses: actions/checkout@v4
-      - name: Download and verify signed test APKs
-        env:
-          GH_TOKEN: ${{ github.token }}
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Verify main source and one-time release gate
+        id: gate
         shell: bash
         run: |
           set -euo pipefail
-          SOURCE_RUN=39021469358
-          outcome="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq '.conclusion')"
-          test "$outcome" = "success"
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
+          test "$SOURCE_SHA" = "$current_main"
+          result="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq '.conclusion')"
+          test "$result" = "success"
+          actual_source="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" --jq '.head_sha')"
+          test "$actual_source" = "$SOURCE_SHA"
+          for job_name in security-source android-debug; do
+            outcome="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN/jobs?per_page=100" --jq ".jobs[] | select(.name == \"$job_name\") | .conclusion" | head -n 1)"
+            test "$outcome" = "success"
+          done
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "The immutable test release already exists; not replacing its APKs."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download exact verified CI artifacts
+        if: steps.gate.outputs.publish == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
           mkdir -p dist staging/arm64 staging/universal
-          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name "MatrixServer-arm64-v8a" --dir staging/arm64
-          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name "MatrixServer-universal" --dir staging/universal
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name MatrixServer-arm64-v8a --dir staging/arm64
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name MatrixServer-universal --dir staging/universal
           cp staging/arm64/MatrixServer-arm64-v8a.apk dist/MatrixServer-arm64-v8a.apk
           cp staging/universal/MatrixServer-universal.apk dist/MatrixServer-universal.apk
-          test -s dist/MatrixServer-arm64-v8a.apk
-          test -s dist/MatrixServer-universal.apk
-          (cd dist && sha256sum -c <<'CHECKSUMS'
-          9159897ffec0cf7074c2c25141c12f6166056bd7186af8fb99a0cd344271b5e8  MatrixServer-arm64-v8a.apk
-          1e501a455d6015286abff2f23d16ac663c0abd457acdbf706b46fa9c7d411139  MatrixServer-universal.apk
-          CHECKSUMS
-          )
-          unzip -t dist/MatrixServer-arm64-v8a.apk >/dev/null
-          unzip -t dist/MatrixServer-universal.apk >/dev/null
-      - name: Write prerelease notes
-        shell: bash
-        run: |
-          cat > dist/RELEASE_NOTES.md <<'NOTES'
-          # Matrix Server — Android 7+ test APKs
 
-          **Test builds, NOT production-signed releases.**
-
-          These two APKs are made from the same tested source snapshot.
-          - **MatrixServer-arm64-v8a.apk**: optimized for 64-bit ARM phones.
-          - **MatrixServer-universal.apk**: bundles ARM64, 32-bit ARM, x86, and x86_64 native libraries.
-          - **Minimum Android version**: Android 7.0 (API 24); Android 6.0 and below are unsupported.
-          - **Application version unchanged**: versionName 1.0 / versionCode 1.
-
-          **Build verification:** source commit `a6c0c2d4ceda909ae7142bd900bd0f916709e22c`,
-          GitHub Actions run [39021469358](https://github.com/drfxai/Matrix-Server/actions/runs/39021469358):
-          unit tests, Android Lint, APK signature verification and minSdk checks passed.
-
-          **Security/installation notice:** Both APKs are signed with the Android debug identity.
-          They cannot update an installed app signed with a different key. Preserve application
-          data before uninstalling any existing installation. SSH/SFTP, background operation,
-          and authorization on physical Android 7 devices remain unverified. Use only on
-          networks you trust; this is not a hardened public SSH hosting service.
-
-          This test release does not introduce new signing credentials or alter the
-          official application version.
-          NOTES
-      - name: Publish or refresh test release
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Verify integrity, Android identity, signing, and minimum OS
+        if: steps.gate.outputs.publish == 'true'
         shell: bash
         run: |
           set -euo pipefail
-          TAG="v1.0.0-android7-test"
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/MatrixServer-arm64-v8a.apk dist/MatrixServer-universal.apk --clobber --repo "$GITHUB_REPOSITORY"
-          else
-            gh release create "$TAG" dist/MatrixServer-arm64-v8a.apk dist/MatrixServer-universal.apk \
-              --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
-              --title "Matrix Server v1.0.0 — Android 7+ Test APKs" \
-              --notes-file dist/RELEASE_NOTES.md
-          fi
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease \
+          SDK_ROOT="$(printenv ANDROID_HOME || printenv ANDROID_SDK_ROOT || printf '%s' /usr/local/lib/android/sdk)"
+          AAPT="$(find "$SDK_ROOT/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$AAPT" && test -x "$APKSIGNER"
+          for artifact in dist/MatrixServer-arm64-v8a.apk dist/MatrixServer-universal.apk; do
+            test -s "$artifact"
+            unzip -t "$artifact" >/dev/null
+            "$APKSIGNER" verify --verbose "$artifact"
+            metadata="$("$AAPT" dump badging "$artifact")"
+            printf '%s\n' "$metadata" | grep -q "name='com.aistudio.matrixserver.kxmt'"
+            printf '%s\n' "$metadata" | grep -q "versionCode='2'"
+            printf '%s\n' "$metadata" | grep -q "versionName='1.0'"
+            printf '%s\n' "$metadata" | grep -q "sdkVersion:'24'"
+            "$APKSIGNER" verify --print-certs "$artifact" > "$artifact.cert-check.txt"
+          done
+          cert1="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' dist/MatrixServer-arm64-v8a.apk.cert-check.txt | head -n 1)"
+          cert2="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' dist/MatrixServer-universal.apk.cert-check.txt | head -n 1)"
+          test -n "$cert1" && test "$cert1" = "$cert2"
+          (cd dist && sha256sum MatrixServer-arm64-v8a.apk MatrixServer-universal.apk > SHA256SUMS.txt)
+          (cd dist && sha256sum -c SHA256SUMS.txt)
+          cat > dist/RELEASE_NOTES.md <<EOF
+          # Matrix Server v1.0.0 — Maximus VPN SSH interoperability test build
+
+          New **opt-in authenticated SSH TCP forwarding** for Maximus VPN via the
+          Mihomo SSH outbound. Adds host-key-pinned Mihomo YAML profile export,
+          dashboard controls, corrected daemon start failure handling, and tests.
+
+          - ARM64 and universal APKs for Android 7.0+ (API 24+).
+          - Public app version remains 1.0; internal versionCode is 2.
+          - GitHub Actions source run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN
+          - Git source commit: $SOURCE_SHA
+          - SHA256SUMS.txt verifies the published APKs.
+
+          **TEST BUILD ONLY. NOT A PRODUCTION SIGNED APK.** The APKs are debug-signed.
+          A different debug certificate cannot update an existing installation.
+          Do not uninstall the old app without first safeguarding app data,
+          authorized keys, and credentials. No Android upgrade/signature
+          compatibility has been proven against the previous test release.
+
+          TCP only; no UDP, VLESS, WireGuard or built-in NAT traversal. Your SSH
+          server must be reachable over a trusted LAN or a protected private
+          overlay. Do not port-forward the SSH daemon onto the public Internet.
+          Physical-device VPN end-to-end verification remains outstanding.
+          EOF
+
+      - name: Publish immutable prerelease from matching CI run
+        if: steps.gate.outputs.publish == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" \
+            dist/MatrixServer-arm64-v8a.apk \
+            dist/MatrixServer-universal.apk \
+            dist/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$SOURCE_SHA" \
+            --prerelease \
+            --title "Matrix Server v1.0.0 — Maximus VPN SSH Test (Android 7+)" \
+            --notes-file dist/RELEASE_NOTES.md
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease \
             --jq '{url: .url, prerelease: .isPrerelease, assets: [.assets[].name]}'
