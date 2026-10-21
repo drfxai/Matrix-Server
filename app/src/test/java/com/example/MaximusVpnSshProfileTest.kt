@@ -25,19 +25,19 @@ class MaximusVpnSshProfileTest {
     @Test
     fun exportedMihomoSshProfileIsPinnedAndEscapesCredentials() {
         val modified = config.copy(password = "strong_password\"\\test")
-        val json = JSONObject(MaximusVpnSshProfile.generate(
+        val yaml = MaximusVpnSshProfile.generate(
             modified, "192.168.1.32", "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCtest"
-        ))
-        val node = json.getJSONArray("proxies").getJSONObject(0)
-        assertEquals("ssh", node.getString("type"))
-        assertEquals("192.168.1.32", node.getString("server"))
-        assertEquals(2222, node.getInt("port"))
-        assertEquals(modified.password, node.getString("password"))
-        assertEquals("matrix", node.getString("username"))
-        assertEquals("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCtest",
-            node.getJSONArray("host-key").getString(0))
-        assertEquals("rsa", node.getJSONArray("host-key-algorithms").getString(0))
-        assertFalse(node.getBoolean("udp"))
+        )
+        assertTrue(yaml.startsWith("proxies:\\n".replace("\\\\n", "\\n")))
+        assertTrue(yaml.contains("    type: ssh"))
+        assertTrue(yaml.contains("    server: ${JSONObject.quote("192.168.1.32")}"))
+        assertTrue(yaml.contains("    port: 2222"))
+        assertTrue(yaml.contains("    username: ${JSONObject.quote("matrix")}"))
+        assertTrue(yaml.contains("    password: ${JSONObject.quote(modified.password)}"))
+        assertTrue(yaml.contains("      - ${JSONObject.quote("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCtest")}"))
+        assertTrue(yaml.contains("    host-key-algorithms:"))
+        assertTrue(yaml.contains("      - rsa"))
+        assertTrue(yaml.contains("    udp: false"))
     }
 
     @Test
