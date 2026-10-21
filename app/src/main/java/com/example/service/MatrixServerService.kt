@@ -84,6 +84,19 @@ class MatrixServerService : Service() {
         sharedSshServerManager = sshServerManager
         sharedLinuxEnvironment = linuxEnvironment
 
+        // The state flows live in the process even if Android recreates the Service.
+        // A newly constructed manager has no listening daemon; stale ONLINE state
+        // must never suppress a subsequent start or mislead the Maximus client.
+        if (_serverState.value.isRunning && !sshServerManager.isServerRunning.value) {
+            _serverState.value = ServerState.OFF
+            _connectionHealth.value = ConnectionHealth(
+                status = ServerStatusType.STOPPED,
+                issueType = ConnectionIssueType.DAEMON_ERROR,
+                headline = "SSH Service Recreated",
+                detailMessage = "The previous SSH listener is no longer verified. Start the server again."
+            )
+        }
+
         createNotificationChannel()
         registerNetworkCallback()
     }
@@ -100,7 +113,8 @@ class MatrixServerService : Service() {
     }
 
     private fun startMatrixServer() {
-        if (_serverState.value.isRunning || _serverState.value.isTransitioning) return
+        if (_serverState.value.isTransitioning ||
+            (_serverState.value.isRunning && sshServerManager.isServerRunning.value)) return
 
         _serverState.value = ServerState.STARTING
         _connectionHealth.value = _connectionHealth.value.copy(
@@ -444,11 +458,21 @@ class MatrixServerService : Service() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
+        // A foreground-service shutdown must not leave a listening SSH daemon
+        // alive without a user-visible notification. Destroy is also invoked
+        // after OS/service recreation and failed starts.
+        if (::sshServerManager.isInitialized) {
+            runCatching { sshServerManager.stopServer() }
+        }
+        _serverState.value = ServerState.OFF
         releaseWakeLock()
-        networkCallback?.let { connectivityManager?.unregisterNetworkCallback(it) }
+        networkCallback?.let { runCatching { connectivityManager?.unregisterNetworkCallback(it) } }
         serviceScope.cancel()
+        sharedSshServerManager = null
+        sharedProcessSupervisor = null
+        sharedLinuxEnvironment = null
         instance = null
+        super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
