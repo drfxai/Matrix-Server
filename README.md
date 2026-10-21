@@ -72,6 +72,19 @@ a production signed APK is published.
 
 See [Security and Runtime Status](SECURITY_AND_RUNTIME.md) for additional details.
 
+## Current Matrix Server + Maximus VPN SSH test release
+
+**Updated build: Matrix Server v1.0.0 (internal build 2, 2026-10-21).**
+
+- [Download verified test release (ARM64 / Universal APK)](https://github.com/drfxai/Matrix-Server/releases/tag/v1.0.0-maximus-ssh-test).
+- [Release notes, checksums, upgrade warnings and Maximus VPN import guide](RELEASE_NOTES_MAXIMUS.md).
+- The old `v1.0.0-android7-test` tag is historical and does **not** contain the Maximus VPN TCP forwarding improvements.
+
+**These are debug-signed test APKs, not production releases.** Signing-certificate
+continuity for in-place upgrade has not been established. Do not uninstall an
+existing installation without first safeguarding its app data and SSH keys.
+Real-phone end-to-end VPN testing remains outstanding.
+
 ## Pre-release test APKs for Android 7.0 and newer
 
 The debug CI build generates two downloadable APK artifacts, with identical
