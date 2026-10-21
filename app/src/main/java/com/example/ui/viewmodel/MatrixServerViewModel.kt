@@ -167,6 +167,29 @@ class MatrixServerViewModel(application: Application) : AndroidViewModel(applica
         cm?.setPrimaryClip(ClipData.newPlainText("Matrix SSH Command", cmd))
     }
 
+    /** Exports a pinned Mihomo SSH profile. Never display or log the password in a toast. */
+    fun copyMaximusVpnProfile(): Boolean {
+        if (serverState.value != ServerState.ON) return false
+        val config = prefs.loadConfig()
+        val hostKey = MatrixServerService.sharedSshServerManager?.currentHostPublicKey() ?: return false
+        val metrics = metricsState.value
+        val address = metrics.lanIpAddress.takeUnless { it == "127.0.0.1" || it.isBlank() }
+            ?: metrics.vpnIpAddress ?: return false
+        return runCatching {
+            val payload = com.example.server.MaximusVpnSshProfile.generate(config, address, hostKey)
+            val clip = ClipData.newPlainText("Maximus VPN SSH profile (sensitive)", payload)
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                clip.description.extras = android.os.Bundle().apply {
+                    putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true)
+                }
+            }
+            val clipboard = getApplication<Application>()
+                .getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return false
+            clipboard.setPrimaryClip(clip)
+            true
+        }.getOrDefault(false)
+    }
+
     fun copyVpnSshCommand() {
         val cmd = metricsState.value.vpnSshCommand ?: return
         val cm = getApplication<Application>().getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
