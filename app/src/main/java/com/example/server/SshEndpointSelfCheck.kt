@@ -62,15 +62,19 @@ internal object SshEndpointSelfCheck {
             socket.connect(InetSocketAddress(host, port), 1100)
             val input = socket.getInputStream()
             val banner = StringBuilder()
-            var terminated = false
-            repeat(255) {
-                val byte = input.read()
-                if (terminated) return@repeat
-                if (byte == 10) terminated = true
-                else if (byte == -1) terminated = true
-                else if (byte != 13) banner.append(byte.toChar())
+            var newlineSeen = false
+            for (i in 0 until 255) {
+                when (val byte = input.read()) {
+                    -1 -> break
+                    10 -> {
+                        newlineSeen = true
+                        break
+                    }
+                    13 -> Unit
+                    else -> banner.append(byte.toChar())
+                }
             }
-            banner.startsWith("SSH-2.0-") && terminated
+            newlineSeen && banner.startsWith("SSH-2.0-")
         }
     } catch (_: java.io.IOException) {
         false
