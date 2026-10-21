@@ -37,7 +37,6 @@ object NetworkUtils {
     fun getLocalIpAddress(): String {
         try {
             val interfaces = NetworkInterface.getNetworkInterfaces() ?: return "127.0.0.1"
-            var candidateIp: String? = null
 
             for (networkInterface in interfaces) {
                 if (!networkInterface.isUp || networkInterface.isLoopback) continue
@@ -52,13 +51,13 @@ object NetworkUtils {
                         val host = inetAddress.hostAddress ?: continue
                         if (isLan) {
                             return host
-                        } else if (candidateIp == null) {
-                            candidateIp = host
                         }
                     }
                 }
             }
-            return candidateIp ?: "127.0.0.1"
+            // A VPN/tun address is not a LAN address. Exporting it by default often
+            // creates an unreachable SSH profile for clients outside the overlay.
+            return "127.0.0.1"
         } catch (_: Exception) {
             return "127.0.0.1"
         }

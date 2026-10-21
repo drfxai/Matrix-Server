@@ -19,7 +19,8 @@ android {
     targetSdk = 36
     // Internal build increment for the Maximus VPN SSH interoperability APK refresh.
     // Preserve public versionName, applicationId, and existing release signing identity.
-    versionCode = 2
+    // Verified SSH endpoint-selection repair; keep public version and signing identity.
+    versionCode = 3
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
