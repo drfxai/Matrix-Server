@@ -168,13 +168,12 @@ class MatrixServerViewModel(application: Application) : AndroidViewModel(applica
     }
 
     /** Exports a pinned Mihomo SSH profile. Never display or log the password in a toast. */
-    fun copyMaximusVpnProfile(): Boolean {
-        if (serverState.value != ServerState.ON) return false
+    fun copyMaximusVpnProfile(address: String): Boolean {
+        if (!serverState.value.isRunning) return false
         val config = prefs.loadConfig()
+        if (!config.vpnTcpForwardingEnabled) return false
+        if (!com.example.server.ExportEndpointPolicy.isValid(address.trim().removeSurrounding("[", "]"))) return false
         val hostKey = MatrixServerService.sharedSshServerManager?.currentHostPublicKey() ?: return false
-        val metrics = metricsState.value
-        val address = metrics.lanIpAddress.takeUnless { it == "127.0.0.1" || it.isBlank() }
-            ?: metrics.vpnIpAddress ?: return false
         return runCatching {
             val payload = com.example.server.MaximusVpnSshProfile.generate(config, address, hostKey)
             val clip = ClipData.newPlainText("Maximus VPN SSH profile (sensitive)", payload)
@@ -414,13 +413,20 @@ class MatrixServerViewModel(application: Application) : AndroidViewModel(applica
 
             // 3. SSH Port check
             val port = configState.value.port
-            val portAvailable = try { ServerSocket(port).use { true } } catch (_: Exception) { serverState.value.isRunning }
+            val sshRunning = MatrixServerService.sharedSshServerManager?.isServerRunning?.value == true
+            val portAvailable = if (sshRunning) true else try {
+                ServerSocket(port).use { true }
+            } catch (_: Exception) { false }
             list.add(
                 DiagnosticItem(
                     id = "diag_port",
                     name = "SSH Port $port Availability",
                     status = if (portAvailable) DiagnosticStatus.PASS else DiagnosticStatus.WARN,
-                    message = if (portAvailable) "Port $port is clear and bound" else "Port $port is occupied by another process"
+                    message = when {
+                        sshRunning -> "SSH daemon reports a listener on port $port (remote access NOT checked)"
+                        portAvailable -> "Port $port is free for SSH startup (not currently bound)"
+                        else -> "Port $port may be occupied; inspect port settings"
+                    }
                 )
             )
 
@@ -432,7 +438,8 @@ class MatrixServerViewModel(application: Application) : AndroidViewModel(applica
                     id = "diag_network",
                     name = "Local Network Interface",
                     status = if (hasLan) DiagnosticStatus.PASS else DiagnosticStatus.WARN,
-                    message = if (hasLan) "Reachable on LAN at $ip" else "No active Wi-Fi or LAN connection detected"
+                    message = if (hasLan) "Local LAN address: $ip. This does NOT prove that another device can reach TCP port $port." else
+                        "No LAN IPv4 detected. If using a VPN/overlay, verify both devices joined it and test SSH from the client."
                 )
             )
 
