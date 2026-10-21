@@ -74,4 +74,27 @@ class MaximusVpnSshProfileTest {
         assertTrue(PublicDestinationPolicy.isAllowed("8.8.8.8"))
         assertTrue(PublicDestinationPolicy.isAllowed("2606:4700:4700::1111"))
     }
+
+    @Test
+    fun privateOverlayAddressIsExportedExactlyAndNotReplacedByLanIp() {
+        val yaml = MaximusVpnSshProfile.generate(config, "10.247.210.65",
+            "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCtest")
+        assertTrue(yaml.contains("server: \"10.247.210.65\""))
+        assertTrue(yaml.startsWith("proxies:"))
+        assertTrue(yaml.contains("udp: false"))
+    }
+
+    @Test
+    fun invalidOrMisleadingEndpointsAreRejectedBeforeSecretExport() {
+        listOf("127.0.0.1", "localhost", "0.0.0.0", "ssh://10.247.210.65:2222",
+            "10.247.210.65:2222", "10.247.210.999", "10.247.210.65\\nmalicious",
+            "[::1]", "user@host.example", "http://host.example", "fd00::1%wlan0")
+            .forEach { address ->
+                assertRejected(config, address)
+            }
+        assertTrue(com.example.server.ExportEndpointPolicy.isValid("192.168.1.12"))
+        assertTrue(com.example.server.ExportEndpointPolicy.isValid("10.247.210.65"))
+        assertTrue(com.example.server.ExportEndpointPolicy.isValid("matrix.example.com"))
+        assertTrue(com.example.server.ExportEndpointPolicy.isValid("fd00::1234"))
+    }
 }
