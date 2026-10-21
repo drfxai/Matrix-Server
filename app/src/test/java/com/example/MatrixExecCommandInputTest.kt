@@ -66,14 +66,14 @@ class MatrixExecCommandInputTest {
     @Test fun standardInputShellScriptExecutesToCompletion() {
         // Use an absolute shell path since Android's deliberately restricted PATH is
         // retained in the tested command's child environment.
-        val result = execute("/bin/sh -s", "printf 'matrix-stdin-ok\\n'\\n")
+        val result = execute("/bin/sh -s", "printf 'matrix-stdin-ok\\n'\n")
         assertEquals(0, result.code)
         assertEquals("matrix-stdin-ok", result.stdout.trim())
         assertTrue(result.stderr.isBlank())
     }
 
     @Test fun remoteScriptStderrAndFailureExitArePreserved() {
-        val result = execute("/bin/sh -s", "printf 'result\\n'; printf 'error\\n' >&2; exit 7\\n")
+        val result = execute("/bin/sh -s", "printf 'result\\n'; printf 'error\\n' >&2; exit 7\n")
         assertEquals(7, result.code)
         assertEquals("result", result.stdout.trim())
         assertEquals("error", result.stderr.trim())
