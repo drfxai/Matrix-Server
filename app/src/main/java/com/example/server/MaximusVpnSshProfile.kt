@@ -1,13 +1,13 @@
 package com.example.server
 
 import com.example.data.model.ServerConfig
-import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Maximus VPN's MihomoParser accepts a Clash/Mihomo proxies document.
- * JSON is valid YAML syntax and safely escapes arbitrary credentials and host strings.
- * Never log, persist, or send this export to remote telemetry.
+ * Maximus VPN detects Mihomo configurations using "proxies:" and forwards
+ * them to MihomoParser. Use explicit YAML, not a JSON root (JSON roots currently
+ * get sent to the Xray JSON parser by Maximus's universal import path).
+ * JSONObject.quote provides JSON/YAML-compatible double-quoted scalar escaping.
  */
 object MaximusVpnSshProfile {
     fun generate(config: ServerConfig, address: String, hostKey: String): String {
@@ -22,16 +22,19 @@ object MaximusVpnSshProfile {
         require(hostKey.startsWith("ssh-rsa ") && hostKey.split(' ').size >= 2) {
             "SSH host key was not available for secure pinning"
         }
-        val node = JSONObject()
-            .put("name", "Matrix Server SSH")
-            .put("type", "ssh")
-            .put("server", address)
-            .put("port", config.port)
-            .put("username", config.username)
-            .put("password", config.password)
-            .put("host-key", JSONArray().put(hostKey))
-            .put("host-key-algorithms", JSONArray().put("rsa"))
-            .put("udp", false)
-        return JSONObject().put("proxies", JSONArray().put(node)).toString(2)
+        return buildString {
+            appendLine("proxies:")
+            appendLine("  - name: ${JSONObject.quote("Matrix Server SSH")}")
+            appendLine("    type: ssh")
+            appendLine("    server: ${JSONObject.quote(address)}")
+            appendLine("    port: ${config.port}")
+            appendLine("    username: ${JSONObject.quote(config.username)}")
+            appendLine("    password: ${JSONObject.quote(config.password)}")
+            appendLine("    host-key:")
+            appendLine("      - ${JSONObject.quote(hostKey)}")
+            appendLine("    host-key-algorithms:")
+            appendLine("      - rsa")
+            appendLine("    udp: false")
+        }
     }
 }
