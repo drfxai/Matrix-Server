@@ -21,9 +21,15 @@ bundled Mihomo SSH outbound.
    You can also enter a verified DNS hostname or address manually.
    **10.247.210.65 is a private address, not a public internet server.**
    The app can inspect its own interfaces but cannot prove a remote client has a route.
-5. Press **Copy Maximus VPN Profile**. This exports explicit Mihomo/Clash YAML with
+5. Tap **Check SSH on this phone's address**. Build 5 checks whether the chosen
+   address belongs to an active network interface on the server phone (IPv4/IPv6)
+   and, if it does, whether a local SSHv2 banner answers on its configured port.
+   If `10.247.210.65` is NOT assigned to the phone, check the overlay or use
+   the phone's current local IP. The test **never** dials an unassigned address.
+   A positive result is local-only and cannot guarantee remote reachability.
+6. Press **Copy Maximus VPN Profile**. This exports explicit Mihomo/Clash YAML with
    the **selected address**, SSH username/password, port and a pinned host public key.
-6. On the **other device**, open Maximus VPN > Add server > import/advanced
+7. On the **other device**, open Maximus VPN > Add server > import/advanced
    configuration, paste the generated Mihomo YAML, select the SSH profile,
    and connect using the bundled Mihomo engine.
 
