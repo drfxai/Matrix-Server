@@ -1,6 +1,7 @@
 package com.example.server
 
-import com.example.util.NetworkUtils
+import java.net.NetworkInterface
+import java.util.Collections
 import java.net.InetSocketAddress
 import java.net.Socket
 
@@ -18,7 +19,17 @@ internal object SshEndpointSelfCheck {
     )
 
     fun run(address: String, port: Int): Result {
-        val addresses = NetworkUtils.getActiveInterfaces().map { it.ipAddress }.toSet()
+        // Include IPv6 and IPv4 addresses, but never enumerate down/loopback
+        // interfaces or contact any network other than an address owned by us.
+        val addresses = runCatching {
+            val interfaces = NetworkInterface.getNetworkInterfaces()
+            if (interfaces == null) emptySet() else {
+                Collections.list(interfaces).filter { it.isUp && !it.isLoopback }
+                    .flatMap { Collections.list(it.inetAddresses) }
+                    .mapNotNull { it.hostAddress?.substringBefore('%') }
+                    .toSet()
+            }
+        }.getOrDefault(emptySet())
         return inspect(address, port, addresses) { host, p -> probe(host, p) }
     }
 
