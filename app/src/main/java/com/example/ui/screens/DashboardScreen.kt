@@ -91,6 +91,7 @@ fun DashboardScreen(
     val health by viewModel.connectionHealth.collectAsState()
     val metrics by viewModel.metricsState.collectAsState()
     val config by viewModel.configState.collectAsState()
+    val sshEndpointCheck by viewModel.sshEndpointCheck.collectAsState()
     // Only suggests addresses. The actual usable endpoint must be selected for the
     // CLIENT network, not inferred from a successful local listening socket test.
     var exportAddress by remember(metrics.lanIpAddress, metrics.vpnIpAddress) {
@@ -345,7 +346,10 @@ fun DashboardScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = exportAddress,
-                        onValueChange = { exportAddress = it },
+                        onValueChange = {
+                            exportAddress = it
+                            viewModel.clearSshEndpointCheck()
+                        },
                         label = { Text("SSH server address for the client") },
                         supportingText = {
                             Text("Choose an address the other phone can reach. Private 10.x / 192.168.x " +
@@ -368,6 +372,31 @@ fun DashboardScreen(
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = { viewModel.checkSshEndpoint(exportAddress) },
+                        enabled = serverState.isRunning && !serverState.isTransitioning,
+                        modifier = Modifier.fillMaxWidth().testTag("check_ssh_local_address"),
+                        colors = ButtonDefaults.buttonColors(containerColor = MatrixBlue)
+                    ) {
+                        Text("Check SSH on this phone's address")
+                    }
+                    sshEndpointCheck?.let { result ->
+                        Text(
+                            text = result,
+                            color = MatrixYellow,
+                            fontSize = 11.sp,
+                            modifier = Modifier.fillMaxWidth()
+                                .testTag("ssh_endpoint_selfcheck_result")
+                                .padding(top = 6.dp, bottom = 8.dp)
+                        )
+                    }
+                    Text(
+                        "This checks only the server phone's interface and SSH banner. " +
+                            "It does not verify connectivity from Maximus VPN or bypass carrier CGNAT.",
+                        color = MatrixTextSecondary,
+                        fontSize = 11.sp
+                    )
                     Text(
                         "Panels > Maximus Tunnel provisions two Linux servers. For this Android " +
                             "server, paste the exported Mihomo SSH YAML in Maximus VPN's Nodes/Import. " +
