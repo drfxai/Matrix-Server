@@ -73,6 +73,31 @@ class MatrixServerViewModel(application: Application) : AndroidViewModel(applica
 
     val terminalLines: StateFlow<List<TerminalLine>> = terminalRunner.outputLines
 
+    private val _sshEndpointCheck = MutableStateFlow<String?>(null)
+    val sshEndpointCheck: StateFlow<String?> = _sshEndpointCheck.asStateFlow()
+
+    /**
+     * User-triggered local-only check. No arbitrary remote host is contacted:
+     * the address must belong to an active interface on this device.
+     */
+    fun checkSshEndpoint(address: String) {
+        _sshEndpointCheck.value = "Checking this phone's network interfaces and SSH listener..."
+        viewModelScope.launch(Dispatchers.IO) {
+            val msg = if (!serverState.value.isRunning ||
+                MatrixServerService.sharedSshServerManager?.isServerRunning?.value != true) {
+                "SSH daemon is not currently running. Start Matrix Server before checking an endpoint."
+            } else {
+                val port = prefs.loadConfig().port
+                com.example.server.SshEndpointSelfCheck.run(address, port).message
+            }
+            _sshEndpointCheck.value = msg
+        }
+    }
+
+    fun clearSshEndpointCheck() {
+        _sshEndpointCheck.value = null
+    }
+
     private val _diagnosticItems = MutableStateFlow<List<DiagnosticItem>>(emptyList())
     val diagnosticItems: StateFlow<List<DiagnosticItem>> = _diagnosticItems.asStateFlow()
 
