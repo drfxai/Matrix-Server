@@ -74,13 +74,13 @@ See [Security and Runtime Status](SECURITY_AND_RUNTIME.md) for additional detail
 
 ## Current Matrix Server + Maximus VPN SSH test release
 
-**Build 4: Matrix Server v1.0.0 (internal versionCode 4, Android 7+, 2026-10-21).**
+**Build 5: Matrix Server v1.0.0 (internal versionCode 5, Android 7+, 2026-10-21).**
 
-- [Latest SSH reliability test release — ARM64 and Universal APKs](https://github.com/drfxai/Matrix-Server/releases/tag/v1.0.0-ssh-reliability-test).
+- [Latest SSH endpoint diagnostics test release — ARM64 / Universal APKs](https://github.com/drfxai/Matrix-Server/releases/tag/v1.0.0-ssh-endpoint-test).
 - [SSH forwarding and Maximus VPN setup guide](MAXIMUS_VPN_SETUP.md).
-- Fixes remote SSH `exec("sh -s")` script input delivery, checks the SSH protocol banner, prevents stale daemon status, and exports SSH commands with the configured username.
-- Retains client-selectable LAN/private-overlay endpoint export and host-key-pinned Mihomo SSH TCP forwarding.
-- Historical test builds: [Build 3](https://github.com/drfxai/Matrix-Server/releases/tag/v1.0.0-overlay-ssh-test), [Build 2](https://github.com/drfxai/Matrix-Server/releases/tag/v1.0.0-maximus-ssh-test).
+- In the **MAXIMUS VPN · SSH TUNNEL** card: select the LAN/VPN address, tap **Check SSH on this phone's address**, and only then **Copy Maximus VPN Profile**. The check detects whether the address is actually assigned to this Android phone and answers with a local SSHv2 banner; **it cannot prove connectivity from a separate Maximus VPN client**.
+- Adds regression checks for incorrect private/overlay addresses and tests live SSH restart/host-key continuity, retaining Build 4's SSH exec and service lifecycle repairs.
+- Historical test builds: [Build 4](https://github.com/drfxai/Matrix-Server/releases/tag/v1.0.0-ssh-reliability-test), [Build 3](https://github.com/drfxai/Matrix-Server/releases/tag/v1.0.0-overlay-ssh-test), [Build 2](https://github.com/drfxai/Matrix-Server/releases/tag/v1.0.0-maximus-ssh-test).
 
 **These are debug-signed test APKs, not production releases.** Signing-certificate
 continuity for in-place upgrade has not been established. Do not uninstall an

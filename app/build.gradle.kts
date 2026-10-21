@@ -17,9 +17,9 @@ android {
     // Android 7.0 (API 24): requires core library NIO desugaring below.
     minSdk = 24
     targetSdk = 36
-    // Internal build increment for verified SSH reliability improvements.
+    // Internal build increment for verified SSH endpoint self-check improvements.
     // Preserve public versionName, applicationId, and signing configuration.
-    versionCode = 4
+    versionCode = 5
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

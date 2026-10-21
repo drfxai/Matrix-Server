@@ -27,7 +27,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       SOURCE_RUN: ${{ github.event.workflow_run.id }}
       SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
-      RELEASE_TAG: v1.0.0-ssh-reliability-test
+      RELEASE_TAG: v1.0.0-ssh-endpoint-test
 
     steps:
       - uses: actions/checkout@v4
@@ -84,7 +84,7 @@ jobs:
             "$APKSIGNER" verify --verbose "$artifact"
             metadata="$("$AAPT" dump badging "$artifact")"
             printf '%s\n' "$metadata" | grep -q "name='com.aistudio.matrixserver.kxmt'"
-            printf '%s\n' "$metadata" | grep -q "versionCode='4'"
+            printf '%s\n' "$metadata" | grep -q "versionCode='5'"
             printf '%s\n' "$metadata" | grep -q "versionName='1.0'"
             printf '%s\n' "$metadata" | grep -q "sdkVersion:'24'"
             "$APKSIGNER" verify --print-certs "$artifact" > "$artifact.cert-check.txt"
@@ -95,19 +95,21 @@ jobs:
           (cd dist && sha256sum MatrixServer-arm64-v8a.apk MatrixServer-universal.apk > SHA256SUMS.txt)
           (cd dist && sha256sum -c SHA256SUMS.txt)
           cat > dist/RELEASE_NOTES.md <<EOF
-          # Matrix Server v1.0.0 — SSH execution and readiness reliability test build
+          # Matrix Server v1.0.0 — SSH endpoint self-check test build
 
-          Fixes SSH exec("sh -s") script delivery by forwarding the remote
-          channel's stdin into the Android child process. Adds end-to-end
-          local SSH handshake and host-key pin tests, plus SSH-banner readiness
-          checks (instead of assuming any open TCP port is SSH). Clears stale
-          service startup/shutdown state and fixes custom username in copied SSH
-          commands. Retains secure opt-in TCP forwarding and explicit LAN or
-          private-overlay endpoint selection from Build 3.
+          Adds an explicit local IP self-check beside Maximus VPN SSH profile
+          export. Verifies that the chosen LAN/private-overlay address is
+          assigned to this Android phone before probing its SSH banner.
+          Does not dial unassigned addresses and never claims that a remote
+          client can connect. Verifies both IPv4 and IPv6 active interfaces.
+          Improves SSH stop/start serialization and resets daemon state on
+          failed shutdown. Includes network self-check regression tests and a
+          real MINA SSH stop/restart host-key-continuity test.
+          Retains Build 4 SSH exec stdin and protocol readiness repairs.
           Only Matrix Server was changed; Maximus VPN was NOT modified.
 
           - ARM64 and universal APKs for Android 7.0+ (API 24+).
-          - Public app version remains 1.0; internal versionCode is 4.
+          - Public app version remains 1.0; internal versionCode is 5.
           - GitHub Actions source run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN
           - Git source commit: $SOURCE_SHA
           - SHA256SUMS.txt verifies the published APKs.
@@ -138,7 +140,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$SOURCE_SHA" \
             --prerelease \
-            --title "Matrix Server v1.0.0 (Build 4) — SSH Reliability (Android 7+)" \
+            --title "Matrix Server v1.0.0 (Build 5) — SSH Endpoint Self-Check (Android 7+)" \
             --notes-file dist/RELEASE_NOTES.md
           gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease \
             --jq '{url: .url, prerelease: .isPrerelease, assets: [.assets[].name]}'

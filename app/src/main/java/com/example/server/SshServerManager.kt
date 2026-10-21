@@ -62,6 +62,7 @@ class SshServerManager(
 
     private val sessionCounter = AtomicInteger(0)
 
+    @Synchronized
     fun startServer(config: ServerConfig): Result<Unit> {
         return try {
             if (_isServerRunning.value) {
@@ -172,16 +173,19 @@ class SshServerManager(
         PublicKeyEntry.toString(key)
     }.getOrNull()
 
+    @Synchronized
     fun stopServer() {
         try {
             sshServer?.stop(true)
+            Log.i(tag, "MATRIX SSH Server stopped")
+        } catch (e: Exception) {
+            Log.e(tag, "Error stopping SSH server", e)
+        } finally {
+            // Never retain stale ONLINE state if shutdown itself throws.
             sshServer = null
             _isServerRunning.value = false
             _activeSessions.value = 0
             sessionCounter.set(0)
-            Log.i(tag, "MATRIX SSH Server stopped")
-        } catch (e: Exception) {
-            Log.e(tag, "Error stopping SSH server", e)
         }
     }
 

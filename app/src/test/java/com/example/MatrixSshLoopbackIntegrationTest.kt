@@ -7,6 +7,8 @@ import com.example.server.SshServerManager
 import org.apache.sshd.client.SshClient
 import org.apache.sshd.client.keyverifier.ServerKeyVerifier
 import org.apache.sshd.common.config.keys.PublicKeyEntry
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -61,6 +63,12 @@ class MatrixSshLoopbackIntegrationTest {
             } finally {
                 client.stop()
             }
+            // After stopping, a fresh listener must start without retaining
+            // stale running/session state or silently rotating the pinned key.
+            manager.stopServer()
+            assertFalse(manager.isServerRunning.value)
+            assertTrue(manager.startServer(config).isSuccess)
+            assertEquals(pinned, manager.currentHostPublicKey())
         } finally {
             manager.stopServer()
         }
