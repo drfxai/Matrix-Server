@@ -27,7 +27,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       SOURCE_RUN: ${{ github.event.workflow_run.id }}
       SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
-      RELEASE_TAG: v1.0.0-maximus-ssh-test
+      RELEASE_TAG: v1.0.0-overlay-ssh-test
 
     steps:
       - uses: actions/checkout@v4
@@ -84,7 +84,7 @@ jobs:
             "$APKSIGNER" verify --verbose "$artifact"
             metadata="$("$AAPT" dump badging "$artifact")"
             printf '%s\n' "$metadata" | grep -q "name='com.aistudio.matrixserver.kxmt'"
-            printf '%s\n' "$metadata" | grep -q "versionCode='2'"
+            printf '%s\n' "$metadata" | grep -q "versionCode='3'"
             printf '%s\n' "$metadata" | grep -q "versionName='1.0'"
             printf '%s\n' "$metadata" | grep -q "sdkVersion:'24'"
             "$APKSIGNER" verify --print-certs "$artifact" > "$artifact.cert-check.txt"
@@ -95,14 +95,18 @@ jobs:
           (cd dist && sha256sum MatrixServer-arm64-v8a.apk MatrixServer-universal.apk > SHA256SUMS.txt)
           (cd dist && sha256sum -c SHA256SUMS.txt)
           cat > dist/RELEASE_NOTES.md <<EOF
-          # Matrix Server v1.0.0 — Maximus VPN SSH interoperability test build
+          # Matrix Server v1.0.0 — Private overlay SSH endpoint repair test build
 
-          New **opt-in authenticated SSH TCP forwarding** for Maximus VPN via the
-          Mihomo SSH outbound. Adds host-key-pinned Mihomo YAML profile export,
-          dashboard controls, corrected daemon start failure handling, and tests.
+          Retains **opt-in authenticated SSH TCP forwarding** for Maximus VPN via
+          the Mihomo SSH outbound. Repairs remote SSH export endpoint selection:
+          choose LAN, VPN/overlay or a manually entered client-reachable host.
+          Validates addresses, separates tun/VPN IP from LAN IP, and corrects
+          local-only status and port diagnostics. Includes regression tests for
+          the private 10.247.210.65 address reported as "Not reachable".
+          This changes Matrix Server ONLY, not the Maximus VPN app.
 
           - ARM64 and universal APKs for Android 7.0+ (API 24+).
-          - Public app version remains 1.0; internal versionCode is 2.
+          - Public app version remains 1.0; internal versionCode is 3.
           - GitHub Actions source run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN
           - Git source commit: $SOURCE_SHA
           - SHA256SUMS.txt verifies the published APKs.
@@ -113,7 +117,9 @@ jobs:
           authorized keys, and credentials. No Android upgrade/signature
           compatibility has been proven against the previous test release.
 
-          TCP only; no UDP, VLESS, WireGuard or built-in NAT traversal. Your SSH
+          Use Maximus VPN Nodes/Import for the Mihomo SSH YAML, not the two-VPS
+          Panels > Maximus Tunnel installer. TCP only; no UDP, VLESS, WireGuard
+          or built-in NAT traversal. Your SSH
           server must be reachable over a trusted LAN or a protected private
           overlay. Do not port-forward the SSH daemon onto the public Internet.
           Physical-device VPN end-to-end verification remains outstanding.
@@ -131,7 +137,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$SOURCE_SHA" \
             --prerelease \
-            --title "Matrix Server v1.0.0 — Maximus VPN SSH Test (Android 7+)" \
+            --title "Matrix Server v1.0.0 (Build 3) — SSH Overlay Endpoint Fix (Android 7+)" \
             --notes-file dist/RELEASE_NOTES.md
           gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease \
             --jq '{url: .url, prerelease: .isPrerelease, assets: [.assets[].name]}'
