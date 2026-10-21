@@ -9,5 +9,7 @@ data class ServerConfig(
     val wakeLockEnabled: Boolean = true,
     val autoStartOnBoot: Boolean = false,
     val lowPowerMode: Boolean = false,
+    // Opt-in: permit authenticated SSH direct-tcpip outbound connections for Mihomo/Maximus VPN.
+    val vpnTcpForwardingEnabled: Boolean = false,
     val setupCompleted: Boolean = false
 )

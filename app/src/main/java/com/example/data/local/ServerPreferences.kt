@@ -38,6 +38,7 @@ class ServerPreferences(context: Context) {
             wakeLockEnabled = prefs.getBoolean(KEY_WAKELOCK, true),
             autoStartOnBoot = prefs.getBoolean(KEY_BOOT_START, false),
             lowPowerMode = prefs.getBoolean(KEY_LOW_POWER, false),
+            vpnTcpForwardingEnabled = prefs.getBoolean(KEY_VPN_TCP_FORWARD, false),
             setupCompleted = prefs.getBoolean(KEY_SETUP_COMPLETED, false)
         )
     }
@@ -56,6 +57,7 @@ class ServerPreferences(context: Context) {
             .putBoolean(KEY_WAKELOCK, config.wakeLockEnabled)
             .putBoolean(KEY_BOOT_START, config.autoStartOnBoot)
             .putBoolean(KEY_LOW_POWER, config.lowPowerMode)
+            .putBoolean(KEY_VPN_TCP_FORWARD, config.vpnTcpForwardingEnabled)
             .putBoolean(KEY_SETUP_COMPLETED, config.setupCompleted)
             .apply {
                 if (encrypted == null) remove(KEY_ENCRYPTED_PASSWORD)
@@ -98,6 +100,7 @@ class ServerPreferences(context: Context) {
         private const val KEY_WAKELOCK = "wakelock_enabled"
         private const val KEY_BOOT_START = "auto_start_on_boot"
         private const val KEY_LOW_POWER = "low_power_mode"
+        private const val KEY_VPN_TCP_FORWARD = "vpn_tcp_forwarding_enabled"
         private const val KEY_SETUP_COMPLETED = "setup_completed"
     }
 }

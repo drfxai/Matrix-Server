@@ -283,6 +283,85 @@ fun DashboardScreen(
                 }
             }
 
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Maximus VPN uses Mihomo's SSH outbound (not VLESS or WireGuard).
+            // Explicit opt-in and a pinned host key prevent accidental open SSH relays.
+            Card(
+                modifier = Modifier.fillMaxWidth()
+                    .border(1.dp, MatrixBlue, RoundedCornerShape(8.dp))
+                    .testTag("maximus_vpn_ssh_card"),
+                colors = CardDefaults.cardColors(containerColor = MatrixDarkSurface),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "MAXIMUS VPN · SSH TUNNEL",
+                        color = MatrixGreen,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        "Encrypted TCP proxy via Mihomo SSH. Not VLESS/WireGuard; UDP is not supported. " +
+                            "The client must reach this phone over trusted LAN or a private tunnel. " +
+                            "A mobile carrier IP usually is not remotely reachable.",
+                        color = MatrixTextSecondary,
+                        fontSize = 12.sp
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Button(
+                        onClick = {
+                            viewModel.updateConfig(config.copy(
+                                vpnTcpForwardingEnabled = !config.vpnTcpForwardingEnabled
+                            ))
+                        },
+                        enabled = !serverState.isRunning && !serverState.isTransitioning,
+                        modifier = Modifier.fillMaxWidth().testTag("toggle_vpn_forwarding"),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (config.vpnTcpForwardingEnabled) MatrixRed else MatrixBlue
+                        )
+                    ) {
+                        Text(if (config.vpnTcpForwardingEnabled)
+                            "Disable VPN TCP Forwarding" else "Enable VPN TCP Forwarding")
+                    }
+                    Text(
+                        if (serverState.isRunning) "Stop the server before changing forwarding mode."
+                        else if (config.vpnTcpForwardingEnabled) "Forwarding enabled in settings. Start SSH server to use it."
+                        else "Forwarding is disabled by default.",
+                        color = MatrixTextSecondary,
+                        fontSize = 11.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            val ok = viewModel.copyMaximusVpnProfile()
+                            Toast.makeText(
+                                context,
+                                if (ok) "Pinned SSH profile copied. Import as Mihomo YAML in Maximus VPN."
+                                else "Unable to export. Check network, strong SSH password and host key.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        },
+                        enabled = serverState == ServerState.ON &&
+                            config.vpnTcpForwardingEnabled && config.passwordAuthEnabled,
+                        modifier = Modifier.fillMaxWidth().testTag("copy_maximus_vpn_profile"),
+                        colors = ButtonDefaults.buttonColors(containerColor = MatrixGreenDark)
+                    ) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = null,
+                            modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Copy Maximus VPN Profile")
+                    }
+                    Text(
+                        "Profile contains your SSH password. Keep it private and clear your clipboard after import.",
+                        color = MatrixYellow,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(20.dp))
 
             // Real-Time System Monitoring Dashboard (CPU, RAM, Active Connections & Sockets)

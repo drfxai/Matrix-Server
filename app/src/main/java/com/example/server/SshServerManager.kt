@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.apache.sshd.common.config.keys.AuthorizedKeyEntry
+import org.apache.sshd.common.config.keys.PublicKeyEntry
 import org.apache.sshd.common.config.keys.KeyUtils
 import org.apache.sshd.common.config.keys.PublicKeyEntryResolver
 import org.apache.sshd.common.session.Session
@@ -25,6 +26,8 @@ import org.apache.sshd.server.auth.password.PasswordAuthenticator
 import org.apache.sshd.server.auth.pubkey.PublickeyAuthenticator
 import org.apache.sshd.server.keyprovider.SimpleGeneratorHostKeyProvider
 import org.apache.sshd.sftp.server.SftpSubsystemFactory
+import org.apache.sshd.server.forward.ForwardingFilter
+import org.apache.sshd.server.forward.RejectAllForwardingFilter
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
@@ -89,6 +92,14 @@ class SshServerManager(
             server.port = config.port
             // Bind to all interfaces for intentional LAN access; never permit anonymous logins.
             server.host = "0.0.0.0"
+            // SSH port forwarding is OFF by default in MINA. Without direct-tcpip,
+            // Mihomo SSH profiles can authenticate but cannot transport TCP traffic.
+            // Enable only explicitly: no remote listeners, agent or X11 forwarding.
+            server.forwardingFilter = if (config.vpnTcpForwardingEnabled) {
+                ForwardingFilter.asForwardingFilter(null, null, PublicTcpForwardingFilter)
+            } else {
+                RejectAllForwardingFilter.INSTANCE
+            }
 
             // Setup Host Key Provider
             val keyProvider = SimpleGeneratorHostKeyProvider(linuxEnvironment.hostKeyFile.toPath())
@@ -153,6 +164,13 @@ class SshServerManager(
             Result.failure(e)
         }
     }
+
+    /** Exactly the same public host key used by the live SSH listener, for Mihomo pinning. */
+    fun currentHostPublicKey(): String? = runCatching {
+        val provider = sshServer?.keyPairProvider ?: return@runCatching null
+        val key = provider.loadKeys(null).firstOrNull()?.public ?: return@runCatching null
+        PublicKeyEntry.toString(key)
+    }.getOrNull()
 
     fun stopServer() {
         try {

@@ -99,7 +99,7 @@ class MatrixServerService : Service() {
     }
 
     private fun startMatrixServer() {
-        if (_serverState.value.isRunning) return
+        if (_serverState.value.isRunning || _serverState.value.isTransitioning) return
 
         _serverState.value = ServerState.STARTING
         _connectionHealth.value = _connectionHealth.value.copy(
@@ -139,7 +139,9 @@ class MatrixServerService : Service() {
                     val exMsg = result.exceptionOrNull()?.message ?: "Unknown bind error"
                     val isPortConflict = exMsg.contains("already in use", ignoreCase = true)
 
-                    _serverState.value = ServerState.DEGRADED
+                    // No daemon is bound: DEGRADED would incorrectly appear as a running server,
+                    // prevent retry, and leave the foreground service/wakelock alive.
+                    _serverState.value = ServerState.OFF
                     _connectionHealth.value = ConnectionHealth(
                         status = ServerStatusType.CONNECTION_ISSUE,
                         issueType = if (isPortConflict) ConnectionIssueType.PORT_IN_USE else ConnectionIssueType.DAEMON_ERROR,
@@ -152,7 +154,9 @@ class MatrixServerService : Service() {
                         port = config.port
                     )
                     Log.e(tag, "Failed to start SSH server: $exMsg")
-                    updateNotification("CONNECTION ISSUE: $exMsg")
+                    releaseWakeLock()
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
                 }
             } catch (e: Exception) {
                 Log.e(tag, "Fatal error starting server", e)
@@ -267,8 +271,8 @@ class MatrixServerService : Service() {
                 HealthStatus(
                     ServerStatusType.RUNNING,
                     ConnectionIssueType.NONE,
-                    "SSH Server Online & Reachable",
-                    "Listening on 0.0.0.0:${config.port}. Socket probe responsive (${latency}ms latency)."
+                    "SSH Listener Running (Local Check)",
+                    "Local TCP probe passed (${latency}ms) on port ${config.port}. Remote SSH, forwarding and VPN traffic are NOT yet verified."
                 )
             }
         }

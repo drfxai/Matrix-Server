@@ -10,6 +10,7 @@ container, VPS, or built-in Python/Node.js hosting platform**.
 ## Supported today
 
 - SSH interactive shell and remote command execution in Android's app sandbox.
+- Opt-in authenticated SSH TCP forwarding for Maximus VPN's Mihomo SSH outbound (TCP only, public destinations only); see [Maximus VPN setup](MAXIMUS_VPN_SETUP.md).
 - SFTP access under Android application permissions (not an enforced chroot).
 - User-configured SSH password and approved public keys.
 - Persistent foreground service, optional WakeLock, and local project supervision.
