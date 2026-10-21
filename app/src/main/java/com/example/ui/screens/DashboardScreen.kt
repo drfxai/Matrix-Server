@@ -41,11 +41,15 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -87,6 +91,11 @@ fun DashboardScreen(
     val health by viewModel.connectionHealth.collectAsState()
     val metrics by viewModel.metricsState.collectAsState()
     val config by viewModel.configState.collectAsState()
+    // Only suggests addresses. The actual usable endpoint must be selected for the
+    // CLIENT network, not inferred from a successful local listening socket test.
+    var exportAddress by remember(metrics.lanIpAddress, metrics.vpnIpAddress) {
+        mutableStateOf(metrics.vpnIpAddress ?: metrics.lanIpAddress.takeUnless { it == "127.0.0.1" }.orEmpty())
+    }
 
     Column(
         modifier = modifier
@@ -334,13 +343,46 @@ fun DashboardScreen(
                         fontSize = 11.sp
                     )
                     Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = exportAddress,
+                        onValueChange = { exportAddress = it },
+                        label = { Text("SSH server address for the client") },
+                        supportingText = {
+                            Text("Choose an address the other phone can reach. Private 10.x / 192.168.x " +
+                                "addresses require the same trusted LAN or a pre-existing private overlay.")
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("maximus_ssh_export_address")
+                    )
+                    if (metrics.lanIpAddress != "127.0.0.1" || metrics.vpnIpAddress != null) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (metrics.lanIpAddress != "127.0.0.1") {
+                                Button(onClick = { exportAddress = metrics.lanIpAddress }) {
+                                    Text("LAN: ${metrics.lanIpAddress}", fontSize = 10.sp)
+                                }
+                            }
+                            metrics.vpnIpAddress?.let { vpn ->
+                                Button(onClick = { exportAddress = vpn }) {
+                                    Text("VPN: $vpn", fontSize = 10.sp)
+                                }
+                            }
+                        }
+                    }
+                    Text(
+                        "Panels > Maximus Tunnel provisions two Linux servers. For this Android " +
+                            "server, paste the exported Mihomo SSH YAML in Maximus VPN's Nodes/Import. " +
+                            "TCP only. An SSH listener check on this phone cannot verify remote reachability.",
+                        color = MatrixYellow,
+                        fontSize = 11.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
                     Button(
                         onClick = {
-                            val ok = viewModel.copyMaximusVpnProfile()
+                            val ok = viewModel.copyMaximusVpnProfile(exportAddress)
                             Toast.makeText(
                                 context,
                                 if (ok) "Pinned SSH profile copied. Import as Mihomo YAML in Maximus VPN."
-                                else "Unable to export. Check network, strong SSH password and host key.",
+                                else "Unable to export. Check address, daemon, forwarding, password and SSH host key.",
                                 Toast.LENGTH_LONG
                             ).show()
                         },
