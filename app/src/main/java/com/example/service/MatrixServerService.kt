@@ -29,6 +29,7 @@ import com.example.data.model.ServerStatusType
 import com.example.server.LinuxEnvironment
 import com.example.server.ProcessSupervisor
 import com.example.server.SshServerManager
+import com.example.server.LocalSshProtocolProbe
 import com.example.util.NetworkUtils
 import com.example.util.SystemMonitor
 import kotlinx.coroutines.CoroutineScope
@@ -220,22 +221,13 @@ class MatrixServerService : Service() {
         }
     }
 
-    private fun probeLocalSocket(port: Int): Pair<Boolean, Long> {
-        val startTime = System.currentTimeMillis()
-        return try {
-            Socket().use { socket ->
-                socket.connect(InetSocketAddress("127.0.0.1", port), 500)
-                val elapsed = System.currentTimeMillis() - startTime
-                Pair(true, elapsed)
-            }
-        } catch (_: Exception) {
-            Pair(false, -1L)
-        }
-    }
-
     private fun performHealthProbe(config: ServerConfig) {
         val activeSessions = sshServerManager.activeSessions.value
-        val (isSocketOk, latency) = probeLocalSocket(config.port)
+        // Verify an SSH identification banner, not just the fact that a TCP
+        // socket accepted a connection. This cannot prove external reachability.
+        val localProbe = LocalSshProtocolProbe.check(config.port)
+        val isSocketOk = localProbe.responsive
+        val latency = localProbe.latencyMs
         val lanIp = NetworkUtils.getLocalIpAddress()
         val vpnIp = NetworkUtils.getVpnIpAddress()
         val isWifi = NetworkUtils.isWifiConnected(this)
@@ -256,7 +248,7 @@ class MatrixServerService : Service() {
                     ServerStatusType.CONNECTION_ISSUE,
                     ConnectionIssueType.SOCKET_TIMEOUT,
                     "Socket Probe Unresponsive",
-                    "Port ${config.port} refused or timed out on local TCP probe. SSH clients cannot establish a handshake."
+                    "No valid SSH identification banner on localhost:${config.port}. Check whether the SSH daemon is running and bound to the configured port."
                 )
             }
             !hasNetwork -> {
@@ -272,7 +264,7 @@ class MatrixServerService : Service() {
                     ServerStatusType.RUNNING,
                     ConnectionIssueType.NONE,
                     "SSH Listener Running (Local Check)",
-                    "Local TCP probe passed (${latency}ms) on port ${config.port}. Remote SSH, forwarding and VPN traffic are NOT yet verified."
+                    "SSH protocol banner received on localhost:${config.port} (${latency}ms). Authentication, forwarding and remote client access are NOT yet verified."
                 )
             }
         }
