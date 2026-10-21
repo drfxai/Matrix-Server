@@ -179,7 +179,7 @@ class MatrixServerViewModel(application: Application) : AndroidViewModel(applica
             val payload = com.example.server.MaximusVpnSshProfile.generate(config, address, hostKey)
             val clip = ClipData.newPlainText("Maximus VPN SSH profile (sensitive)", payload)
             if (android.os.Build.VERSION.SDK_INT >= 33) {
-                clip.description.extras = android.os.Bundle().apply {
+                clip.description.extras = android.os.PersistableBundle().apply {
                     putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true)
                 }
             }
