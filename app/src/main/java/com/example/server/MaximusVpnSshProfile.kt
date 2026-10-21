@@ -50,7 +50,7 @@ object MaximusVpnSshProfile {
 internal object ExportEndpointPolicy {
     fun isValid(host: String): Boolean {
         val h = host.trim()
-        if (h.isEmpty() || h.length > 253 || h.any { it.isWhitespace() || it.isISOControl() } ||
+        if (h.isEmpty() || h.length > 253 || h.any { it.isWhitespace() || java.lang.Character.isISOControl(it) } ||
             h.contains('@') || h.contains('/') || h.contains('\\') || h.contains('%') ||
             h.contains('?') || h.contains('#') || h.contains('[') || h.contains(']')) return false
         if (h == "0.0.0.0" || h == "127.0.0.1" || h == "::" || h == "::1" ||
@@ -62,7 +62,7 @@ internal object ExportEndpointPolicy {
         }
         val parts = h.split('.')
         if (parts.size == 4 && parts.all { p -> p.isNotEmpty() && p.all(Char::isDigit) }) {
-            return parts.all { it.toIntOrNull() in 0..255 } &&
+            return parts.all { it.toIntOrNull()?.let { n -> n in 0..255 } == true } &&
                 h != "255.255.255.255" && !h.startsWith("127.") && !h.startsWith("0.")
         }
         return parts.size >= 2 && parts.all { p ->
