@@ -28,7 +28,7 @@ class MaximusVpnSshProfileTest {
         val yaml = MaximusVpnSshProfile.generate(
             modified, "192.168.1.32", "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCtest"
         )
-        assertTrue(yaml.startsWith("proxies:\\n".replace("\\\\n", "\\n")))
+        assertTrue(yaml.startsWith("proxies:\n"))
         assertTrue(yaml.contains("    type: ssh"))
         assertTrue(yaml.contains("    server: ${JSONObject.quote("192.168.1.32")}"))
         assertTrue(yaml.contains("    port: 2222"))
